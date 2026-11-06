@@ -5,6 +5,7 @@
 #include <Fonts/FreeSansBold24pt7b.h>
 #include "dashboard_icons.h"
 #include "dashboard_renderer.h"
+#include "cityel_logo.h"
 
 namespace {
 
@@ -301,46 +302,9 @@ void drawLevelBox(DashboardDisplay &display, int16_t x, int16_t y, char label, b
 }
 
 void drawCityElLogo(DashboardDisplay &display) {
-    const int16_t cx = 396;
-
-    // 1. Iconic CityEl Wedge-Canopy Silhouette (centered at cx = 396, y = 20..86)
-    // Outer wedge body polygon filled via scanlines / triangles
-    display.fillTriangle(306, 68, 418, 22, 418, 68, GxEPD_BLACK);
-    display.fillTriangle(418, 22, 478, 50, 418, 68, GxEPD_BLACK);
-    display.fillTriangle(478, 50, 478, 68, 418, 68, GxEPD_BLACK);
-    display.fillRect(306, 66, 173, 8, GxEPD_BLACK);
-
-    // Side canopy window cutout (white wedge inside roof)
-    display.fillTriangle(328, 60, 415, 27, 415, 60, GxEPD_WHITE);
-    display.fillTriangle(421, 27, 466, 49, 421, 60, GxEPD_WHITE);
-    display.fillTriangle(466, 49, 466, 60, 421, 60, GxEPD_WHITE);
-
-    // Wheel arches & wheels (front wheel at x=338, rear wheel at x=450)
-    display.fillCircle(338, 74, 15, GxEPD_WHITE);
-    display.fillCircle(338, 74, 11, GxEPD_BLACK);
-    display.fillCircle(338, 74,  5, GxEPD_WHITE);
-
-    display.fillCircle(450, 74, 15, GxEPD_WHITE);
-    display.fillCircle(450, 74, 11, GxEPD_BLACK);
-    display.fillCircle(450, 74,  5, GxEPD_WHITE);
-
-    // 2. Classic Horizontal Speed Lines & "CITY-EL" Wordmark (y = 102..188)
-    display.fillRect(cx - 260, 102, 520, 3, GxEPD_BLACK);
-    display.fillRect(cx - 260, 186, 520, 3, GxEPD_BLACK);
-
-    // Left & right speed stripes
-    for (int16_t i = 0; i < 3; i++) {
-        int16_t sy = 124 + i * 18;
-        int16_t sw = 72 - i * 14;
-        display.fillRect(cx - 260 + (i * 14), sy, sw, 6, GxEPD_BLACK);
-        display.fillRect(cx + 260 - sw - (i * 14), sy, sw, 6, GxEPD_BLACK);
-    }
-
-    display.setFont(&FreeSansBold24pt7b);
-    display.setTextSize(2);
-    display.setTextColor(GxEPD_BLACK);
-    drawCenteredTextBaseline(display, "CITY-EL", cx, 170);
-    display.setTextSize(1);
+    const int16_t lx = (792 - CITYEL_LOGO_WIDTH) / 2;
+    const int16_t ly = 40;
+    display.drawBitmap(lx, ly, CITYEL_LOGO_BITMAP, CITYEL_LOGO_WIDTH, CITYEL_LOGO_HEIGHT, GxEPD_BLACK);
 }
 
 } // namespace
