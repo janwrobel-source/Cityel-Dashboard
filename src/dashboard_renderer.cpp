@@ -210,27 +210,28 @@ void drawOdometerDigitTile(DashboardDisplay &display, int16_t x, int16_t y, int1
 }
 
 void drawOdometerRoller(DashboardDisplay &display, uint32_t odo_km, uint8_t tenths) {
-    const int16_t ox = 282, oy = 218, ow = 198, oh = 36;
+    const int16_t ox = 282, oy = 215, ow = 198, oh = 42;
     constexpr int16_t digit_spacing = 27;
     constexpr int16_t digit_count = 6;
     const int16_t tile_width = digit_spacing;
-    const int16_t tile_height = oh - 4;
+    const int16_t tile_height = oh - 10;
+    const int16_t tile_y = oy + 5;
     const int16_t tiles_x = ox + (ow - ((digit_count + 1) * tile_width)) / 2;
     display.fillRoundRect(ox, oy, ow, oh, 4, GxEPD_BLACK);
     char buf[8];
     snprintf(buf, sizeof(buf), "%06lu", (unsigned long)(odo_km % 1000000UL));
     for (int16_t i = 0; i < digit_count; i++) {
         int16_t tx = tiles_x + (i * tile_width);
-        drawOdometerDigitTile(display, tx, oy + 2, tile_width, tile_height, buf[i], false);
+        drawOdometerDigitTile(display, tx, tile_y, tile_width, tile_height, buf[i], false);
         if (i > 0) {
-            display.drawFastVLine(tx, oy + 5, tile_height - 6, GxEPD_WHITE);
+            display.drawFastVLine(tx, tile_y + 3, tile_height - 6, GxEPD_WHITE);
         }
     }
-    drawOdometerDigitTile(display, tiles_x + (digit_count * tile_width), oy + 2, tile_width, tile_height,
+    drawOdometerDigitTile(display, tiles_x + (digit_count * tile_width), tile_y, tile_width, tile_height,
                           (char)('0' + (tenths % 10)), true);
     display.setFont(&FreeSansBold12pt7b);
     display.setTextColor(GxEPD_BLACK);
-    display.setCursor(ox + ow + 5, oy + 28);
+    display.setCursor(ox + ow + 5, oy + 31);
     display.print("km");
 }
 
@@ -299,6 +300,49 @@ void drawLevelBox(DashboardDisplay &display, int16_t x, int16_t y, char label, b
     drawCenteredText(display, text, x + 20, y + 20);
 }
 
+void drawCityElLogo(DashboardDisplay &display) {
+    const int16_t cx = 396;
+
+    // 1. Iconic CityEl Wedge-Canopy Silhouette (centered at cx = 396, y = 20..86)
+    // Outer wedge body polygon filled via scanlines / triangles
+    display.fillTriangle(306, 68, 418, 22, 418, 68, GxEPD_BLACK);
+    display.fillTriangle(418, 22, 478, 50, 418, 68, GxEPD_BLACK);
+    display.fillTriangle(478, 50, 478, 68, 418, 68, GxEPD_BLACK);
+    display.fillRect(306, 66, 173, 8, GxEPD_BLACK);
+
+    // Side canopy window cutout (white wedge inside roof)
+    display.fillTriangle(328, 60, 415, 27, 415, 60, GxEPD_WHITE);
+    display.fillTriangle(421, 27, 466, 49, 421, 60, GxEPD_WHITE);
+    display.fillTriangle(466, 49, 466, 60, 421, 60, GxEPD_WHITE);
+
+    // Wheel arches & wheels (front wheel at x=338, rear wheel at x=450)
+    display.fillCircle(338, 74, 15, GxEPD_WHITE);
+    display.fillCircle(338, 74, 11, GxEPD_BLACK);
+    display.fillCircle(338, 74,  5, GxEPD_WHITE);
+
+    display.fillCircle(450, 74, 15, GxEPD_WHITE);
+    display.fillCircle(450, 74, 11, GxEPD_BLACK);
+    display.fillCircle(450, 74,  5, GxEPD_WHITE);
+
+    // 2. Classic Horizontal Speed Lines & "CITY-EL" Wordmark (y = 102..188)
+    display.fillRect(cx - 260, 102, 520, 3, GxEPD_BLACK);
+    display.fillRect(cx - 260, 186, 520, 3, GxEPD_BLACK);
+
+    // Left & right speed stripes
+    for (int16_t i = 0; i < 3; i++) {
+        int16_t sy = 124 + i * 18;
+        int16_t sw = 72 - i * 14;
+        display.fillRect(cx - 260 + (i * 14), sy, sw, 6, GxEPD_BLACK);
+        display.fillRect(cx + 260 - sw - (i * 14), sy, sw, 6, GxEPD_BLACK);
+    }
+
+    display.setFont(&FreeSansBold24pt7b);
+    display.setTextSize(2);
+    display.setTextColor(GxEPD_BLACK);
+    drawCenteredTextBaseline(display, "CITY-EL", cx, 170);
+    display.setTextSize(1);
+}
+
 } // namespace
 
 void renderDashboard(DashboardDisplay &display, const CityElState &car, bool full_refresh) {
@@ -308,6 +352,12 @@ void renderDashboard(DashboardDisplay &display, const CityElState &car, bool ful
     display.firstPage();
     do {
         display.fillScreen(GxEPD_WHITE);
+
+        if (car.power_off) {
+            drawCityElLogo(display);
+            drawOdometerRoller(display, car.odometer_km, car.odo_tenths);
+            continue;
+        }
 
         display.fillRect(12, 42, 768, 2, GxEPD_BLACK);
         if (car.turn_left)       CityElIcons::drawTurnLeft(display,       20,  6, GxEPD_BLACK);

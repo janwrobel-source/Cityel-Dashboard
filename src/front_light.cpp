@@ -34,7 +34,7 @@ bool begin() {
 void update(const CityElState &car) {
     if (!pwm_ready) return;
 
-    bool lights_on = car.parking_lights || car.low_beam || car.high_beam;
+    bool lights_on = !car.power_off && (car.parking_lights || car.low_beam || car.high_beam);
     if (!state_initialized || lights_on != last_lights_on) {
         last_lights_on = lights_on;
         state_initialized = true;

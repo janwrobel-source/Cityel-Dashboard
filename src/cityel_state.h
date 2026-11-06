@@ -31,6 +31,7 @@ struct CityElState {
     uint8_t      clock_hour          = 0;
     uint8_t      clock_min           = 0;
     ClockSetMode clock_set_mode      = ClockSetMode::NONE;
+    bool         power_off           = false;
 
     constexpr bool isOverheated() const {
         return overheat_controller || overheat_bms;

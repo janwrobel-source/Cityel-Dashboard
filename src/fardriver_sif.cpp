@@ -262,4 +262,11 @@ bool update(CityElState &car) {
 
     return changed;
 }
+
+void flushOdometer() {
+    if (current_tenths != last_saved_tenths) {
+        saveOdometer(current_tenths);
+    }
+}
+
 }

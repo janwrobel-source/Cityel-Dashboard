@@ -39,6 +39,7 @@ void applyDemoPreset(CityElState &car) {
 
 void begin(CityElState &car, bool seed_on_boot) {
     pinMode(BTN_EXIT_PIN, INPUT_PULLUP);
+    pinMode(BTN_MENU_PIN, INPUT_PULLUP);
 
     if (seed_on_boot) {
         applyDemoPreset(car);
@@ -46,8 +47,17 @@ void begin(CityElState &car, bool seed_on_boot) {
 }
 
 bool update(CityElState &car) {
+    bool menu_pressed = CityElButtons::pressed(BTN_MENU_PIN, 0, 0);
+    if (menu_pressed) {
+        car.power_off = !car.power_off;
+        car.clock_set_mode = ClockSetMode::NONE;
+        Serial.printf("[DEMO] Power-off screen toggled: %s\n", car.power_off ? "ON" : "OFF");
+        return true;
+    }
+
     bool exit_pressed = CityElButtons::pressed(BTN_EXIT_PIN, 0, 0);
     if (exit_pressed) {
+        car.power_off = false;
         if (!demo_active) {
             applyDemoPreset(car);
             CityElRTC::setTime(car.clock_hour, car.clock_min);

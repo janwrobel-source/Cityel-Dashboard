@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <SPI.h>
+#include <esp_sleep.h>
 #include "dashboard_renderer.h"
 #include "rtc_clock.h"
 #include "demo_state.h"
@@ -24,6 +25,7 @@ TaskHandle_t display_task_handle = nullptr;
 CityElState pending_car_snapshot;
 bool pending_redraw = false;
 bool pending_full_refresh = false;
+volatile bool display_busy = false;
 
 void displayTask(void * /*param*/) {
     for (;;) {
@@ -41,6 +43,9 @@ void displayTask(void * /*param*/) {
                 do_full = pending_full_refresh;
                 pending_redraw = false;
                 pending_full_refresh = false;
+                display_busy = true;
+            } else {
+                display_busy = false;
             }
             portEXIT_CRITICAL(&display_mux);
 
@@ -64,6 +69,43 @@ void requestDashboardRedraw(const CityElState &state, bool full_refresh) {
     }
 }
 
+void checkHardwarePowerLoss(CityElState &state) {
+    static uint32_t low_since_ms = 0;
+
+    if (digitalRead(PWR_LOSS_PIN) == LOW) {
+        if (low_since_ms == 0) {
+            low_since_ms = millis();
+        } else if (millis() - low_since_ms >= 20) {
+            Serial.println("[PWR] Main 12V power loss detected! Saving odometer & hibernating...");
+
+            // 1. Cut high-current LED frontlight immediately to save supercapacitor energy
+            state.power_off = true;
+            CityElFrontLight::update(state);
+
+            // 2. Flush any unsaved odometer tenths to FRAM / NVS while voltage is still high
+            CityElFarDriver::flushOdometer();
+
+            // 3. Cancel queued redraws, wait if E-Ink is mid-refresh, then draw Power-Off screen
+            portENTER_CRITICAL(&display_mux);
+            pending_redraw = false;
+            portEXIT_CRITICAL(&display_mux);
+            while (display_busy) {
+                delay(5);
+            }
+
+            renderDashboard(display, state, false);
+            display.hibernate();
+            digitalWrite(EPD_PWR_PIN, LOW);
+
+            // 4. Enter deep sleep (wakes automatically if 12V power returns before supercap drains)
+            esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(PWR_LOSS_PIN), 1);
+            esp_deep_sleep_start();
+        }
+    } else {
+        low_since_ms = 0;
+    }
+}
+
 } // namespace
 
 // ============================================================================
@@ -72,7 +114,8 @@ void requestDashboardRedraw(const CityElState &state, bool full_refresh) {
 void setup() {
     Serial.begin(115200);
 
-    // 1. Configure onboard demo buttons (starts with neutral car state; press MENU/EXIT for bench demo)
+    // 1. Configure onboard demo buttons & upstream power-loss sense pin
+    pinMode(PWR_LOSS_PIN, INPUT_PULLUP);
     CityElDemo::begin(car, false);
 
     // 2. Turn ON the CrowPanel E-Ink 3.3V power rail (GPIO 7)
@@ -121,6 +164,8 @@ void setup() {
 }
 
 void loop() {
+    checkHardwarePowerLoss(car);
+
     bool needs_redraw = false;
     bool full_refresh = millis() - last_full_refresh_ms >= 60000UL;
 

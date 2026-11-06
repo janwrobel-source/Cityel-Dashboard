@@ -34,6 +34,7 @@ constexpr uint8_t I2S_BCLK_PIN = 38;
 constexpr uint8_t I2S_LRC_PIN  = 8;
 constexpr uint8_t I2S_DOUT_PIN = 16;
 
-// --- 7. Panel Front Lighting (PWM LED) ---
+// --- 7. Panel Front Lighting (PWM LED) & Power Loss Sense ---
 constexpr uint8_t FRONT_LIGHT_PIN = 14;
+constexpr uint8_t PWR_LOSS_PIN    = 13;  // Active-LOW upstream 12V power-loss sense
 
