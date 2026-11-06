@@ -208,6 +208,7 @@ void drawOdometerDigitTile(DashboardDisplay &display, int16_t x, int16_t y, int1
     display.setCursor(x + (width - text_width) / 2 - bounds_x,
                       y + (height - text_height) / 2 - bounds_y);
     display.print(digit);
+    display.setTextColor(GxEPD_BLACK);
 }
 
 void drawOdometerRoller(DashboardDisplay &display, uint32_t odo_km, uint8_t tenths) {
@@ -251,6 +252,7 @@ void drawClockBadge(DashboardDisplay &display, uint8_t hour, uint8_t minute, Clo
     }
 
     display.setFont(&FreeSansBold12pt7b);
+    display.setTextColor(GxEPD_BLACK);
 
     // Use reference digit "8" for a constant vertical baseline across all digits
     int16_t ref_bx = 0, ref_by = 0;
@@ -279,6 +281,7 @@ void drawClockBadge(DashboardDisplay &display, uint8_t hour, uint8_t minute, Clo
         char d_str[2] = {digits[i], '\0'};
         drawCenteredTextBaseline(display, d_str, digit_cx[i], baseline_y);
     }
+    display.setTextColor(GxEPD_BLACK);
 
     // Vertically and horizontally centered colon dots
     display.fillRect(cx_mid - 1, cy_mid - 6, 3, 3, GxEPD_BLACK);
@@ -291,6 +294,7 @@ void drawGearCircle(DashboardDisplay &display, int16_t cx, int16_t cy, char labe
     display.setFont(&FreeSansBold12pt7b);
     char text[2] = {label, '\0'};
     drawCenteredText(display, text, cx, cy);
+    display.setTextColor(GxEPD_BLACK);
 }
 
 void drawLevelBox(DashboardDisplay &display, int16_t x, int16_t y, char label, bool active) {
@@ -299,6 +303,7 @@ void drawLevelBox(DashboardDisplay &display, int16_t x, int16_t y, char label, b
     display.setFont(&FreeSansBold12pt7b);
     char text[2] = {label, '\0'};
     drawCenteredText(display, text, x + 20, y + 20);
+    display.setTextColor(GxEPD_BLACK);
 }
 
 void drawCityElLogo(DashboardDisplay &display) {
@@ -316,6 +321,8 @@ void renderDashboard(DashboardDisplay &display, const CityElState &car, bool ful
     display.firstPage();
     do {
         display.fillScreen(GxEPD_WHITE);
+        display.setTextColor(GxEPD_BLACK);
+        display.setTextSize(1);
 
         if (car.power_off) {
             drawCityElLogo(display);
@@ -344,6 +351,8 @@ void renderDashboard(DashboardDisplay &display, const CityElState &car, bool ful
         drawCenteredTextBaseline(display, soc_str, 28 + 26, 92);
         drawBatteryBar(display, car.battery_soc);
 
+        display.setFont(&FreeSansBold12pt7b);
+        display.setTextColor(GxEPD_BLACK);
         char amp_str[8];
         snprintf(amp_str, sizeof(amp_str), "%+dA", car.current_amps);
         drawCenteredTextBaseline(display, "AMP", 114 + 26, 68);
@@ -352,6 +361,7 @@ void renderDashboard(DashboardDisplay &display, const CityElState &car, bool ful
 
         drawSpeedArch(display, car.speed_kmh);
         display.setFont(&FreeSansBold24pt7b);
+        display.setTextColor(GxEPD_BLACK);
         display.setTextSize(2);
         char spd_str[4];
         snprintf(spd_str, sizeof(spd_str), "%u", car.speed_kmh);
@@ -359,6 +369,7 @@ void renderDashboard(DashboardDisplay &display, const CityElState &car, bool ful
         display.setTextSize(1);
 
         display.setFont(&FreeSansBold12pt7b);
+        display.setTextColor(GxEPD_BLACK);
         drawCenteredTextBaseline(display, "km/h", 396, 202);
         drawOdometerRoller(display, car.odometer_km, car.odo_tenths);
 
@@ -367,11 +378,14 @@ void renderDashboard(DashboardDisplay &display, const CityElState &car, bool ful
         drawGearCircle(display, 742, 76, 'R', car.gear == 'R');
 
         display.setFont(&FreeSansBold12pt7b);
+        display.setTextColor(GxEPD_BLACK);
         drawCenteredTextBaseline(display, "FAN", 716, 128);
         CityElIcons::drawFanIcon(display, 620, 138, GxEPD_BLACK);
         drawLevelBox(display, 672, 136, '1', car.fan_level == 1);
         drawLevelBox(display, 720, 136, '2', car.fan_level == 2);
 
+        display.setFont(&FreeSansBold12pt7b);
+        display.setTextColor(GxEPD_BLACK);
         drawCenteredTextBaseline(display, "HEAT", 716, 206);
         CityElIcons::drawDefrosterIcon(display, 620, 216, GxEPD_BLACK);
         drawLevelBox(display, 672, 214, '1', car.heat_level == 1);

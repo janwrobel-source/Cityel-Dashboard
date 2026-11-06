@@ -93,7 +93,7 @@ void checkHardwarePowerLoss(CityElState &state) {
                 delay(5);
             }
 
-            renderDashboard(display, state, false);
+            renderDashboard(display, state, true);
             display.hibernate();
             digitalWrite(EPD_PWR_PIN, LOW);
 
@@ -164,6 +164,8 @@ void setup() {
 }
 
 void loop() {
+    static bool prev_power_off = false;
+
     checkHardwarePowerLoss(car);
 
     bool needs_redraw = false;
@@ -205,6 +207,12 @@ void loop() {
     CityElFrontLight::update(car);
 
     // --- 4. NON-BLOCKING E-INK REFRESH ON CORE 0 ---
+    if (car.power_off != prev_power_off) {
+        prev_power_off = car.power_off;
+        needs_redraw = true;
+        full_refresh = true;
+    }
+
     if (needs_redraw) {
         if (full_refresh) {
             last_full_refresh_ms = millis();
