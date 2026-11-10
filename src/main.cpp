@@ -138,8 +138,8 @@ void setup() {
     // TCA9555/MCP23017 I2C 0x20
     CityElHarness::begin();                                          
 
-    // Initialize MAX98357A I2S Amplifier (0.85f = 85% volume)
-    CityElAudio::begin(0.85f);
+    // Initialize MAX98357A I2S Amplifier (1.0f = 100% volume)
+    CityElAudio::begin(1.0f);
 
     // Initialize JK-BMS on IO17 (TX) & IO18 (RX)
     CityElBMS::begin();
