@@ -8,8 +8,8 @@
 namespace {
 
 constexpr i2s_port_t I2S_PORT_NUM = I2S_NUM_0;
-constexpr uint32_t SAMPLE_RATE = 22050;
-constexpr int CLICK_SAMPLES = 320;
+constexpr uint32_t SAMPLE_RATE = 44100;
+constexpr int CLICK_SAMPLES = 640;
 
 i2s_chan_handle_t tx_handle = nullptr;
 int16_t tick_wave[CLICK_SAMPLES * 2];
