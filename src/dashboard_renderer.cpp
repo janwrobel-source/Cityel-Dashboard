@@ -237,10 +237,25 @@ void drawOdometerRoller(DashboardDisplay &display, uint32_t odo_km, uint8_t tent
     display.print("km");
 }
 
-void drawClockBadge(DashboardDisplay &display, uint8_t hour, uint8_t minute, ClockSetMode set_mode) {
+void drawClockBadge(DashboardDisplay &display, uint8_t hour, uint8_t minute, ClockSetMode set_mode,
+                    bool rtc_battery_low) {
     const int16_t cx_box = 348, cy_box = 5, cw = 96, ch = 32;
     const int16_t cx_mid = cx_box + cw / 2;
     const int16_t cy_mid = cy_box + ch / 2;
+
+    if (rtc_battery_low && set_mode == ClockSetMode::NONE) {
+        const char *alert_str = "CLK BAT LOW";
+        display.setFont(&FreeSansBold9pt7b);
+        int16_t bx = 0, by = 0;
+        uint16_t tw = 0, th = 0;
+        display.getTextBounds(alert_str, 0, 0, &bx, &by, &tw, &th);
+        const int16_t alert_w = max<int16_t>(144, (int16_t)tw + 20);
+        display.fillRoundRect(cx_mid - (alert_w / 2), cy_box, alert_w, ch, 5, GxEPD_BLACK);
+        display.setTextColor(GxEPD_WHITE);
+        drawCenteredText(display, alert_str, cx_mid, cy_mid);
+        display.setTextColor(GxEPD_BLACK);
+        return;
+    }
 
     display.drawRoundRect(cx_box, cy_box, cw, ch, 5, GxEPD_BLACK);
     display.drawRoundRect(cx_box + 1, cy_box + 1, cw - 2, ch - 2, 4, GxEPD_BLACK);
@@ -336,7 +351,7 @@ void renderDashboard(DashboardDisplay &display, const CityElState &car, bool ful
         if (car.parking_lights)  CityElIcons::drawParkingLights(display,  154, 6, GxEPD_BLACK);
         if (car.low_beam)        CityElIcons::drawLowBeam(display,        212, 6, GxEPD_BLACK);
         if (car.high_beam)       CityElIcons::drawHighBeam(display,       270, 6, GxEPD_BLACK);
-        drawClockBadge(display, car.clock_hour, car.clock_min, car.clock_set_mode);
+        drawClockBadge(display, car.clock_hour, car.clock_min, car.clock_set_mode, car.rtc_battery_low);
         if (car.handbrake)       CityElIcons::drawHandbrake(display,      490, 6, GxEPD_BLACK);
         if (car.brake_fluid_err) CityElIcons::drawBrakeFluidFault(display,548, 6, GxEPD_BLACK);
         if (car.charger_conn)    CityElIcons::drawChargerIcon(display,    606, 6, GxEPD_BLACK);

@@ -98,12 +98,14 @@ bool begin(CityElState &car) {
     Wire.endTransmission(false);
     if (Wire.requestFrom((uint8_t)DS3231_ADDR, (uint8_t)1) == 1) {
         if (Wire.read() & 0x80) {
-            Serial.println("[RTC] First DS3231 boot -> Saving initial time to DS3231.");
-            setTime(car.clock_hour, car.clock_min);
+            car.rtc_battery_low = true;
+            Serial.println("[RTC] WARNING: DS3231 OSF set -> Clock backup battery low/missing!");
+        } else {
+            car.rtc_battery_low = false;
         }
     }
 
-    if (syncFromDS3231()) {
+    if (!car.rtc_battery_low && syncFromDS3231()) {
         readEsp32InternalClock(car.clock_hour, car.clock_min);
         Serial.printf("[RTC] Synced DS3231 -> ESP32 Internal Clock: %02u:%02u\n", car.clock_hour, car.clock_min);
         return true;
@@ -128,6 +130,8 @@ bool update(CityElState &car) {
             car.clock_set_mode = ClockSetMode::MINUTES;
         } else {
             car.clock_set_mode = ClockSetMode::NONE;
+            setTime(car.clock_hour, car.clock_min);
+            car.rtc_battery_low = false;
         }
         last_set_activity_ms = now;
         time_changed = true;
@@ -140,6 +144,7 @@ bool update(CityElState &car) {
                                        : (uint8_t)((car.clock_min + 59) % 60);
         }
         setTime(car.clock_hour, car.clock_min);
+        car.rtc_battery_low = false;
         last_set_activity_ms = now;
         time_changed = true;
     }
@@ -150,7 +155,7 @@ bool update(CityElState &car) {
         time_changed = true;
     }
 
-    if (car.clock_set_mode == ClockSetMode::NONE && (now - last_resync_ms >= 3600000UL)) {
+    if (car.clock_set_mode == ClockSetMode::NONE && !car.rtc_battery_low && (now - last_resync_ms >= 3600000UL)) {
         last_resync_ms = now;
         syncFromDS3231();
     }
@@ -160,7 +165,9 @@ bool update(CityElState &car) {
     if (internal_h != car.clock_hour || internal_m != car.clock_min) {
         car.clock_hour = internal_h;
         car.clock_min = internal_m;
-        time_changed = true;
+        if (!car.rtc_battery_low || car.clock_set_mode != ClockSetMode::NONE) {
+            time_changed = true;
+        }
     }
 
     return time_changed;

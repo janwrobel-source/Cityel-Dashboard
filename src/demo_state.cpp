@@ -34,6 +34,7 @@ void applyDemoPreset(CityElState &car) {
     car.overheat_bms        = false;
     car.clock_hour          = 14;
     car.clock_min           = 32;
+    car.rtc_battery_low     = false;
     demo_active             = true;
 }
 
@@ -80,6 +81,7 @@ bool update(CityElState &car) {
         car.turn_right = !car.turn_right;
         car.hazard_lights = (car.turn_left && car.turn_right);
         car.overheat_controller = !car.overheat_controller;
+        car.rtc_battery_low = !car.rtc_battery_low;
 
         Serial.printf("[DEMO] Speed: %u km/h | Current: %+dA | Gear: %c\n",
                       car.speed_kmh, car.current_amps, car.gear);
