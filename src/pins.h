@@ -38,3 +38,17 @@ constexpr uint8_t I2S_DOUT_PIN = 16;
 constexpr uint8_t FRONT_LIGHT_PIN = 14;
 constexpr uint8_t PWR_LOSS_PIN    = 9;   // Active-LOW upstream 12V power-loss sense (20-pin header IO9, RTC-wake capable)
 
+// --- 8. TCA9555 / MCP23017 I2C Expander (0x20) Optocoupler Input Bits ---
+constexpr uint8_t HARNESS_BIT_TURN_LEFT   = 0;  // P00 <- J4-1  (SW-WS, +12V active)
+constexpr uint8_t HARNESS_BIT_TURN_RIGHT  = 1;  // P01 <- J3-7  (GN-SW, +12V active)
+constexpr uint8_t HARNESS_BIT_PARKING_LT  = 2;  // P02 <- J3-15 (GR,    +12V active)
+constexpr uint8_t HARNESS_BIT_LOW_BEAM    = 3;  // P03 <- J22-2 (GE,    +12V active)
+constexpr uint8_t HARNESS_BIT_HIGH_BEAM   = 4;  // P04 <- J3-9  (WS,    +12V active)
+constexpr uint8_t HARNESS_BIT_HANDBRAKE   = 5;  // P05 <- J4-3  (RT-WS, +12V active)
+constexpr uint8_t HARNESS_BIT_BRAKE_FLUID = 6;  // P06 <- J4-2  (GE-BR, +12V active)
+constexpr uint8_t HARNESS_BIT_HAZARD      = 7;  // P07 <- J3-8  (SW-RT, +12V active)
+constexpr uint8_t HARNESS_BIT_FAN_1       = 8;  // P10 <- J3-10 (BR-RT, 0V active-LOW + 1N4007 block)
+constexpr uint8_t HARNESS_BIT_FAN_2       = 9;  // P11 <- S3-11 (BL-GE, 0V active-LOW + 1N4007 block)
+constexpr uint8_t HARNESS_BIT_HEAT_1      = 10; // P12 <- J3-12 (GN-WS, +36V/Pack active)
+constexpr uint8_t HARNESS_BIT_HEAT_2      = 11; // P13 <- J3-11 (GR-WS, +36V/Pack active)
+

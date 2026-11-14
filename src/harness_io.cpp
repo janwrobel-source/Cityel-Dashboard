@@ -1,4 +1,5 @@
 #include "harness_io.h"
+#include "pins.h"
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -92,26 +93,26 @@ bool update(CityElState &car) {
         return (stable_state & (1U << bit)) == 0;
     };
 
-    car.turn_left = active(0);
-    car.turn_right = active(1);
-    car.hazard_lights = (car.turn_left && car.turn_right);
-    car.parking_lights = active(2);
-    car.low_beam = active(3);
-    car.high_beam = active(4);
-    car.handbrake = active(5);
-    car.brake_fluid_err = active(6);
+    car.turn_left       = active(HARNESS_BIT_TURN_LEFT);
+    car.turn_right      = active(HARNESS_BIT_TURN_RIGHT);
+    car.parking_lights  = active(HARNESS_BIT_PARKING_LT);
+    car.low_beam        = active(HARNESS_BIT_LOW_BEAM);
+    car.high_beam       = active(HARNESS_BIT_HIGH_BEAM);
+    car.handbrake       = active(HARNESS_BIT_HANDBRAKE);
+    car.brake_fluid_err = active(HARNESS_BIT_BRAKE_FLUID);
+    car.hazard_lights   = active(HARNESS_BIT_HAZARD);
 
-    bool fan1 = active(8);
-    bool fan2 = active(9);
-    bool heat1 = active(10);
-    bool heat2 = active(11);
+    bool fan1  = active(HARNESS_BIT_FAN_1);
+    bool fan2  = active(HARNESS_BIT_FAN_2);
+    bool heat1 = active(HARNESS_BIT_HEAT_1);
+    bool heat2 = active(HARNESS_BIT_HEAT_2);
 
     car.fan_level = fan2 ? 2 : (fan1 ? 1 : 0);
     car.heat_level = heat2 ? 2 : (heat1 ? 1 : 0);
 
     if (HARNESS_DEBUG_SERIAL) {
-        Serial.printf("[IO] Bits: 0x%04X | L:%d R:%d P:%d Lo:%d Hi:%d Brk:%d Fl:%d Chg:%d Fan:%u Heat:%u\n",
-            stable_state, car.turn_left, car.turn_right, car.parking_lights,
+        Serial.printf("[IO] Bits: 0x%04X | L:%d R:%d Haz:%d P:%d Lo:%d Hi:%d Brk:%d Fl:%d Chg:%d Fan:%u Heat:%u\n",
+            stable_state, car.turn_left, car.turn_right, car.hazard_lights, car.parking_lights,
             car.low_beam, car.high_beam, car.handbrake, car.brake_fluid_err,
             car.charger_conn, car.fan_level, car.heat_level);
     }

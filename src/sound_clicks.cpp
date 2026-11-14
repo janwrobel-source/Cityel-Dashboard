@@ -102,7 +102,7 @@ void playRelayClick(bool is_tick) {
 
 void updateTurnSignalClicks(const CityElState &car) {
     static bool prev_blinker_lit = false;
-    bool current_blinker_lit = (car.turn_left || car.turn_right);
+    bool current_blinker_lit = (car.turn_left || car.turn_right || car.hazard_lights);
 
     if (current_blinker_lit != prev_blinker_lit) {
         playRelayClick(current_blinker_lit);
