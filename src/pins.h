@@ -38,7 +38,7 @@ constexpr uint8_t I2S_DOUT_PIN = 16;
 constexpr uint8_t FRONT_LIGHT_PIN = 14;
 constexpr uint8_t PWR_LOSS_PIN    = 9;   // Active-LOW upstream 12V power-loss sense (20-pin header IO9, RTC-wake capable)
 
-// --- 8. TCA9555 / MCP23017 I2C Expander (0x20) Optocoupler Input Bits ---
+// --- 8. PCF8575 / TCA9555 I2C Expander (0x20) Optocoupler Input Bits ---
 constexpr uint8_t HARNESS_BIT_TURN_LEFT   = 0;  // P00 <- J4-1  (SW-WS, +12V active)
 constexpr uint8_t HARNESS_BIT_TURN_RIGHT  = 1;  // P01 <- J3-7  (GN-SW, +12V active)
 constexpr uint8_t HARNESS_BIT_PARKING_LT  = 2;  // P02 <- J3-15 (GR,    +12V active)

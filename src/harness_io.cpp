@@ -6,7 +6,13 @@
 
 namespace {
 
-constexpr bool USE_TCA9555 = true;
+enum class ExpanderType : uint8_t {
+    PCF8575,
+    TCA9555,
+    MCP23017
+};
+
+constexpr ExpanderType EXPANDER_TYPE = ExpanderType::PCF8575;
 constexpr uint8_t EXPANDER_I2C_ADDR = 0x20;
 constexpr bool HARNESS_DEBUG_SERIAL = true;
 
@@ -15,12 +21,43 @@ uint16_t stable_state = 0xFFFF;
 uint16_t last_raw_read = 0xFFFF;
 uint32_t last_bounce_ms = 0;
 uint32_t last_poll_ms = 0;
+uint32_t last_latch_refresh_ms = 0;
+
+void configureInputs() {
+    if (EXPANDER_TYPE == ExpanderType::PCF8575) {
+        // Quasi-bidirectional: writing 1s enables weak ~100uA pull-ups for input reading
+        Wire.beginTransmission(EXPANDER_I2C_ADDR);
+        Wire.write(0xFF);
+        Wire.write(0xFF);
+        Wire.endTransmission();
+    } else if (EXPANDER_TYPE == ExpanderType::TCA9555) {
+        Wire.beginTransmission(EXPANDER_I2C_ADDR);
+        Wire.write(0x06); // Configuration Port 0 & 1 = all inputs
+        Wire.write(0xFF);
+        Wire.write(0xFF);
+        Wire.endTransmission();
+    } else {
+        Wire.beginTransmission(EXPANDER_I2C_ADDR);
+        Wire.write(0x00); // IODIRA & IODIRB = all inputs
+        Wire.write(0xFF);
+        Wire.write(0xFF);
+        Wire.endTransmission();
+
+        Wire.beginTransmission(EXPANDER_I2C_ADDR);
+        Wire.write(0x0C); // GPPUA & GPPUB = 100k pull-ups enabled
+        Wire.write(0xFF);
+        Wire.write(0xFF);
+        Wire.endTransmission();
+    }
+}
 
 uint16_t readRaw16() {
-    uint8_t reg = USE_TCA9555 ? 0x00 : 0x12;
-    Wire.beginTransmission(EXPANDER_I2C_ADDR);
-    Wire.write(reg);
-    if (Wire.endTransmission(false) != 0) return 0xFFFF;
+    if (EXPANDER_TYPE != ExpanderType::PCF8575) {
+        uint8_t reg = (EXPANDER_TYPE == ExpanderType::TCA9555) ? 0x00 : 0x12;
+        Wire.beginTransmission(EXPANDER_I2C_ADDR);
+        Wire.write(reg);
+        if (Wire.endTransmission(false) != 0) return 0xFFFF;
+    }
 
     if (Wire.requestFrom((uint8_t)EXPANDER_I2C_ADDR, (uint8_t)2) == 2) {
         uint8_t port0 = Wire.read();
@@ -39,44 +76,35 @@ bool begin() {
     expander_online = (Wire.endTransmission() == 0);
 
     if (!expander_online) {
-        Serial.println("[IO] TCA9555/MCP23017 not found at 0x20 -> Harness inputs idle (Bench Mode).");
+        Serial.println("[IO] I2C Expander not found at 0x20 -> Harness inputs idle (Bench Mode).");
         return false;
     }
 
-    if (USE_TCA9555) {
-        Wire.beginTransmission(EXPANDER_I2C_ADDR);
-        Wire.write(0x06);
-        Wire.write(0xFF);
-        Wire.write(0xFF);
-        Wire.endTransmission();
-        Serial.println("[IO] TCA9555 Online at 0x20 (16 optocoupler inputs active-LOW)");
-    } else {
-        Wire.beginTransmission(EXPANDER_I2C_ADDR);
-        Wire.write(0x00);
-        Wire.write(0xFF);
-        Wire.write(0xFF);
-        Wire.endTransmission();
-
-        Wire.beginTransmission(EXPANDER_I2C_ADDR);
-        Wire.write(0x0C);
-        Wire.write(0xFF);
-        Wire.write(0xFF);
-        Wire.endTransmission();
-        Serial.println("[IO] MCP23017 Online at 0x20 (16 internal pull-ups enabled)");
-    }
+    configureInputs();
+    const char *chip_name = (EXPANDER_TYPE == ExpanderType::PCF8575) ? "PCF8575" :
+                            (EXPANDER_TYPE == ExpanderType::TCA9555) ? "TCA9555" : "MCP23017";
+    Serial.printf("[IO] %s Online at 0x20 (16 optocoupler inputs active-LOW)\n", chip_name);
 
     stable_state = readRaw16();
     last_raw_read = stable_state;
     last_bounce_ms = millis();
     last_poll_ms = 0;
+    last_latch_refresh_ms = millis();
     return true;
 }
 
 bool update(CityElState &car) {
     if (!expander_online) return false;
 
-    if (millis() - last_poll_ms < 15) return false;
-    last_poll_ms = millis();
+    uint32_t now = millis();
+    if (now - last_poll_ms < 15) return false;
+    last_poll_ms = now;
+
+    // Periodically re-assert 0xFFFF input latches on PCF8575 so an EMI glitch can never stick a pin low
+    if (EXPANDER_TYPE == ExpanderType::PCF8575 && (now - last_latch_refresh_ms >= 2000UL)) {
+        last_latch_refresh_ms = now;
+        configureInputs();
+    }
 
     uint16_t raw = readRaw16();
     if (raw != last_raw_read) {
