@@ -13,7 +13,6 @@ enum class ExpanderType : uint8_t {
 };
 
 constexpr ExpanderType EXPANDER_TYPE = ExpanderType::PCF8575;
-constexpr uint8_t EXPANDER_I2C_ADDR = 0x20;
 constexpr bool HARNESS_DEBUG_SERIAL = true;
 
 bool expander_online = false;
@@ -76,14 +75,14 @@ bool begin() {
     expander_online = (Wire.endTransmission() == 0);
 
     if (!expander_online) {
-        Serial.println("[IO] I2C Expander not found at 0x20 -> Harness inputs idle (Bench Mode).");
+        Serial.printf("[IO] I2C Expander not found at 0x%02X -> Harness inputs idle (Bench Mode).\n", EXPANDER_I2C_ADDR);
         return false;
     }
 
     configureInputs();
     const char *chip_name = (EXPANDER_TYPE == ExpanderType::PCF8575) ? "PCF8575" :
                             (EXPANDER_TYPE == ExpanderType::TCA9555) ? "TCA9555" : "MCP23017";
-    Serial.printf("[IO] %s Online at 0x20 (16 optocoupler inputs active-LOW)\n", chip_name);
+    Serial.printf("[IO] %s Online at 0x%02X (16 optocoupler inputs active-LOW)\n", chip_name, EXPANDER_I2C_ADDR);
 
     stable_state = readRaw16();
     last_raw_read = stable_state;

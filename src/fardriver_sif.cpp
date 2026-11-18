@@ -8,7 +8,6 @@
 #define SIF_INVERTED_BY_OPTO  true
 #define SIF_DEBUG_SERIAL      true
 #define FARD_SPEED_DIVISOR    1.0f
-#define ODO_FRAM_ADDR         0x50
 
 // Default: Byte 2, Bit 6 (0x40 = Park / Charge Lock on DKD/Protocol 21).
 // Watch "[SIF] Raw:" in Serial Monitor when triggering the FarDriver Charger pin to verify!
@@ -92,7 +91,7 @@ void saveOdometer(uint32_t tenths_val) {
     if (fram_online) {
         for (uint8_t slot = 0; slot < 2; slot++) {
             uint16_t addr = slot * sizeof(OdoRecord);
-            Wire.beginTransmission(ODO_FRAM_ADDR);
+            Wire.beginTransmission(ODO_FRAM_I2C_ADDR);
             Wire.write((uint8_t)(addr >> 8));
             Wire.write((uint8_t)(addr & 0xFF));
             Wire.write((const uint8_t*)&rec, sizeof(OdoRecord));
@@ -111,27 +110,27 @@ void saveOdometer(uint32_t tenths_val) {
 namespace CityElFarDriver {
 
 void begin(CityElState &car) {
-    // 1. Auto-detect I2C FRAM at 0x50 (Wire.begin was already called by CityElRTC::begin)
-    Wire.beginTransmission(ODO_FRAM_ADDR);
+    // 1. Auto-detect I2C FRAM (Wire.begin was already called by CityElRTC::begin)
+    Wire.beginTransmission(ODO_FRAM_I2C_ADDR);
     fram_online = (Wire.endTransmission() == 0);
 
     OdoRecord slotA = {0, 0}, slotB = {0, 0};
 
     if (fram_online) {
-        Serial.println("[ODO] I2C FRAM detected at 0x50! Using real-time 0.1km FRAM storage.");
+        Serial.printf("[ODO] I2C FRAM detected at 0x%02X! Using real-time 0.1km FRAM storage.\n", ODO_FRAM_I2C_ADDR);
         for (uint8_t slot = 0; slot < 2; slot++) {
             uint16_t addr = slot * sizeof(OdoRecord);
-            Wire.beginTransmission(ODO_FRAM_ADDR);
+            Wire.beginTransmission(ODO_FRAM_I2C_ADDR);
             Wire.write((uint8_t)(addr >> 8));
             Wire.write((uint8_t)(addr & 0xFF));
             if (Wire.endTransmission(false) == 0 &&
-                Wire.requestFrom((uint8_t)ODO_FRAM_ADDR, (uint8_t)sizeof(OdoRecord)) == sizeof(OdoRecord)) {
+                Wire.requestFrom((uint8_t)ODO_FRAM_I2C_ADDR, (uint8_t)sizeof(OdoRecord)) == sizeof(OdoRecord)) {
                 uint8_t *dst = (uint8_t*)(slot == 0 ? &slotA : &slotB);
                 for (size_t i = 0; i < sizeof(OdoRecord); i++) dst[i] = Wire.read();
             }
         }
     } else {
-        Serial.println("[ODO] FRAM not found at 0x50 -> Using ESP32 NVS Flash (save-on-stop).");
+        Serial.printf("[ODO] FRAM not found at 0x%02X -> Using ESP32 NVS Flash (save-on-stop).\n", ODO_FRAM_I2C_ADDR);
         odo_prefs.begin("cityel_odo", false);
         odo_prefs.getBytes("slotA", &slotA, sizeof(OdoRecord));
         odo_prefs.getBytes("slotB", &slotB, sizeof(OdoRecord));

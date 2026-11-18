@@ -18,9 +18,12 @@ constexpr uint8_t BTN_DOWN_PIN = 4;
 constexpr uint8_t BTN_CONF_PIN = 5;   // Rotary/rocker switch press (CONF)
 constexpr uint8_t BTN_UP_PIN   = 6;
 
-// --- 3. I2C Bus (DS3231 RTC, TCA9555/MCP23017 Harness IO, FRAM) ---
-constexpr uint8_t I2C_SDA_PIN  = 19;
-constexpr uint8_t I2C_SCL_PIN  = 20;
+// --- 3. I2C Bus & Device Addresses ---
+constexpr uint8_t I2C_SDA_PIN       = 19;
+constexpr uint8_t I2C_SCL_PIN       = 20;
+constexpr uint8_t EXPANDER_I2C_ADDR = 0x20; // PCF8575 / TCA9555 / MCP23017 Harness IO
+constexpr uint8_t ODO_FRAM_I2C_ADDR = 0x51; // I2C FRAM (Odometer storage)
+constexpr uint8_t DS3231_I2C_ADDR   = 0x68; // DS3231 Real-Time Clock
 
 // --- 4. FarDriver Controller One-LIN / SIF Input ---
 constexpr uint8_t FARD_SIF_PIN = 15;
@@ -38,7 +41,7 @@ constexpr uint8_t I2S_DOUT_PIN = 16;
 constexpr uint8_t FRONT_LIGHT_PIN = 14;
 constexpr uint8_t PWR_LOSS_PIN    = 9;   // Active-LOW upstream 12V power-loss sense (20-pin header IO9, RTC-wake capable)
 
-// --- 8. PCF8575 / TCA9555 I2C Expander (0x20) Optocoupler Input Bits ---
+// --- 8. PCF8575 / TCA9555 I2C Expander Optocoupler Input Bits ---
 constexpr uint8_t HARNESS_BIT_TURN_LEFT   = 0;  // P00 <- J4-1  (SW-WS, +12V active)
 constexpr uint8_t HARNESS_BIT_TURN_RIGHT  = 1;  // P01 <- J3-7  (GN-SW, +12V active)
 constexpr uint8_t HARNESS_BIT_PARKING_LT  = 2;  // P02 <- J3-15 (GR,    +12V active)

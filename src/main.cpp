@@ -129,13 +129,13 @@ void setup() {
     display.setRotation(0);
 
     // 4. Initialize RTC & Rocker Switches (GPIO 6 UP / GPIO 4 DOWN)
-    //    Seeds ESP32 internal clock (and syncs from DS3231 at 0x68 if connected)
+    //    Seeds ESP32 internal clock (and syncs from DS3231 at DS3231_I2C_ADDR if connected)
     CityElRTC::begin(car);
 
     // Initialize FarDriver One-LIN on GPIO 15 & load saved Odometer from NVS
     CityElFarDriver::begin(car);
 
-    // TCA9555/MCP23017 I2C 0x20
+    // PCF8575 / TCA9555 / MCP23017 I2C Expander (EXPANDER_I2C_ADDR)
     CityElHarness::begin();                                          
 
     // Initialize MAX98357A I2S Amplifier (1.0f = 100% volume)

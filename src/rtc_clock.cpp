@@ -8,7 +8,6 @@
 
 namespace {
 
-constexpr uint8_t DS3231_ADDR = 0x68;
 constexpr uint32_t CLOCK_SET_TIMEOUT_MS = 30000UL;
 
 uint8_t bcd2dec(uint8_t val) {
@@ -49,25 +48,25 @@ void readEsp32InternalClock(uint8_t &hour, uint8_t &minute) {
 bool setTime(uint8_t hour, uint8_t minute) {
     setEsp32InternalClock(hour, minute, 0);
 
-    Wire.beginTransmission(DS3231_ADDR);
+    Wire.beginTransmission(DS3231_I2C_ADDR);
     Wire.write(0x00);
     Wire.write(dec2bcd(0));
     Wire.write(dec2bcd(minute % 60));
     Wire.write(dec2bcd(hour % 24));
     if (Wire.endTransmission() != 0) return false;
 
-    Wire.beginTransmission(DS3231_ADDR);
+    Wire.beginTransmission(DS3231_I2C_ADDR);
     Wire.write(0x0F);
     Wire.write(0x00);
     return (Wire.endTransmission() == 0);
 }
 
 bool syncFromDS3231() {
-    Wire.beginTransmission(DS3231_ADDR);
+    Wire.beginTransmission(DS3231_I2C_ADDR);
     Wire.write(0x00);
     if (Wire.endTransmission(false) != 0) return false;
 
-    if (Wire.requestFrom((uint8_t)DS3231_ADDR, (uint8_t)3) == 3) {
+    if (Wire.requestFrom((uint8_t)DS3231_I2C_ADDR, (uint8_t)3) == 3) {
         uint8_t sec = bcd2dec(Wire.read() & 0x7F);
         uint8_t min = bcd2dec(Wire.read() & 0x7F);
         uint8_t hour = bcd2dec(Wire.read() & 0x3F);
@@ -87,16 +86,16 @@ bool begin(CityElState &car) {
 
     setEsp32InternalClock(car.clock_hour, car.clock_min, 0);
 
-    Wire.beginTransmission(DS3231_ADDR);
+    Wire.beginTransmission(DS3231_I2C_ADDR);
     if (Wire.endTransmission() != 0) {
         Serial.println("[RTC] DS3231 not connected -> Running on ESP32-S3 Internal Clock!");
         return false;
     }
 
-    Wire.beginTransmission(DS3231_ADDR);
+    Wire.beginTransmission(DS3231_I2C_ADDR);
     Wire.write(0x0F);
     Wire.endTransmission(false);
-    if (Wire.requestFrom((uint8_t)DS3231_ADDR, (uint8_t)1) == 1) {
+    if (Wire.requestFrom((uint8_t)DS3231_I2C_ADDR, (uint8_t)1) == 1) {
         if (Wire.read() & 0x80) {
             car.rtc_battery_low = true;
             Serial.println("[RTC] WARNING: DS3231 OSF set -> Clock backup battery low/missing!");
