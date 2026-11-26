@@ -8,5 +8,6 @@ namespace CityElFarDriver {
 void begin(CityElState &car);
 bool update(CityElState &car);
 void flushOdometer();
+void syncToState(CityElState &car);
 
 }

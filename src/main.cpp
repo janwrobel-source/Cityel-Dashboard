@@ -1,15 +1,17 @@
 #include <Arduino.h>
 #include <SPI.h>
+#include <Wire.h>
 #include <esp_sleep.h>
+#include "config.h"
 #include "dashboard_renderer.h"
-#include "rtc_clock.h"
 #include "demo_state.h"
 #include "fardriver_sif.h"
-#include "sound_clicks.h"
-#include "jkbms.h"
-#include "harness_io.h"
 #include "front_light.h"
+#include "harness_io.h"
+#include "jkbms.h"
 #include "pins.h"
+#include "rtc_clock.h"
+#include "sound_clicks.h"
 
 DashboardDisplay display(
     GxEPD2_579_GDEY0579T93(EPD_CS_PIN, EPD_DC_PIN, EPD_RST_PIN, EPD_BUSY_PIN)
@@ -21,11 +23,26 @@ uint32_t last_full_refresh_ms = 0;
 namespace {
 
 portMUX_TYPE display_mux = portMUX_INITIALIZER_UNLOCKED;
+SemaphoreHandle_t display_mutex = nullptr;
 TaskHandle_t display_task_handle = nullptr;
 CityElState pending_car_snapshot;
 bool pending_redraw = false;
 bool pending_full_refresh = false;
-volatile bool display_busy = false;
+
+void enterDeepSleepUntilPowerReturns() {
+    esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(PWR_LOSS_PIN), 1);
+    esp_deep_sleep_start();
+}
+
+bool isPowerLostDebounced() {
+    if (digitalRead(PWR_LOSS_PIN) != LOW) return false;
+    uint32_t start_ms = millis();
+    while (millis() - start_ms < 20) {
+        if (digitalRead(PWR_LOSS_PIN) != LOW) return false;
+        delay(1);
+    }
+    return true;
+}
 
 void displayTask(void * /*param*/) {
     for (;;) {
@@ -43,14 +60,15 @@ void displayTask(void * /*param*/) {
                 do_full = pending_full_refresh;
                 pending_redraw = false;
                 pending_full_refresh = false;
-                display_busy = true;
-            } else {
-                display_busy = false;
             }
             portEXIT_CRITICAL(&display_mux);
 
             if (!do_redraw) break;
-            renderDashboard(display, snap, do_full);
+
+            if (xSemaphoreTake(display_mutex, portMAX_DELAY) == pdTRUE) {
+                renderDashboard(display, snap, do_full);
+                xSemaphoreGive(display_mutex);
+            }
         }
     }
 }
@@ -78,19 +96,21 @@ void checkHardwarePowerLoss(CityElState &state) {
         } else if (millis() - low_since_ms >= 20) {
             Serial.println("[PWR] Main 12V power loss detected! Saving odometer & hibernating...");
 
-            // 1. Cut high-current LED frontlight immediately to save supercapacitor energy
+            // 1. Cut high-current LED frontlight immediately to conserve supercapacitor energy
             state.power_off = true;
             CityElFrontLight::update(state);
 
-            // 2. Flush any unsaved odometer tenths to FRAM / NVS while voltage is still high
+            // 2. Flush any unsaved odometer tenths to FRAM / NVS while rail voltage is still high
             CityElFarDriver::flushOdometer();
 
-            // 3. Cancel queued redraws, wait if E-Ink is mid-refresh, then draw Power-Off screen
+            // 3. Cancel queued redraws, lock display mutex (waits cleanly if Core 0 is mid-refresh),
+            //    and draw the final Power-Off screen without releasing the mutex
             portENTER_CRITICAL(&display_mux);
             pending_redraw = false;
             portEXIT_CRITICAL(&display_mux);
-            while (display_busy) {
-                delay(5);
+
+            if (display_mutex != nullptr) {
+                xSemaphoreTake(display_mutex, pdMS_TO_TICKS(3000));
             }
 
             renderDashboard(display, state, true);
@@ -98,8 +118,7 @@ void checkHardwarePowerLoss(CityElState &state) {
             digitalWrite(EPD_PWR_PIN, LOW);
 
             // 4. Enter deep sleep (wakes automatically if 12V power returns before supercap drains)
-            esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(PWR_LOSS_PIN), 1);
-            esp_deep_sleep_start();
+            enterDeepSleepUntilPowerReturns();
         }
     } else {
         low_since_ms = 0;
@@ -109,46 +128,44 @@ void checkHardwarePowerLoss(CityElState &state) {
 } // namespace
 
 // ============================================================================
-// SETUP & MAIN LOOP (CLOCK + ROCKER SWITCH + DEMO BUTTON)
+// SETUP & MAIN LOOP
 // ============================================================================
 void setup() {
-    Serial.begin(115200);
-
-    // 1. Configure onboard demo buttons & upstream power-loss sense pin
+    // 1. Check upstream 12V power-loss pin first to avoid draining supercap on transient brownout wakes
     pinMode(PWR_LOSS_PIN, INPUT_PULLUP);
-    CityElDemo::begin(car, false);
+    if (isPowerLostDebounced()) {
+        enterDeepSleepUntilPowerReturns();
+    }
 
-    // 2. Turn ON the CrowPanel E-Ink 3.3V power rail (GPIO 7)
+    Serial.begin(SERIAL_BAUD_RATE);
+    display_mutex = xSemaphoreCreateMutex();
+
+    // 2. Initialize shared I2C bus before any I2C peripherals (RTC, FRAM, Harness Expander)
+    Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN, I2C_CLOCK_HZ);
+    Wire.setTimeOut(I2C_TIMEOUT_MS);
+
+    // 3. Turn ON the CrowPanel E-Ink 3.3V power rail & initialize SPI display (792x272 SSD1683)
     pinMode(EPD_PWR_PIN, OUTPUT);
     digitalWrite(EPD_PWR_PIN, HIGH);
     delay(100);
 
-    // 3. Initialize SPI & E-Paper Display (792x272 SSD1683)
     SPI.begin(EPD_SCK_PIN, -1, EPD_MOSI_PIN, EPD_CS_PIN);
-    display.init(115200, true, 2, false);
+    display.init(SERIAL_BAUD_RATE, true, 2, false);
     display.setRotation(0);
 
-    // 4. Initialize RTC & Rocker Switches (GPIO 6 UP / GPIO 4 DOWN)
-    //    Seeds ESP32 internal clock (and syncs from DS3231 at DS3231_I2C_ADDR if connected)
+    // 4. Initialize Vehicle Subsystems
     CityElRTC::begin(car);
-
-    // Initialize FarDriver One-LIN on GPIO 15 & load saved Odometer from NVS
     CityElFarDriver::begin(car);
-
-    // PCF8575 / TCA9555 / MCP23017 I2C Expander (EXPANDER_I2C_ADDR)
-    CityElHarness::begin();                                          
-
-    // Initialize MAX98357A I2S Amplifier (1.0f = 100% volume)
-    CityElAudio::begin(1.0f);
-
-    // Initialize JK-BMS on IO17 (TX) & IO18 (RX)
+    CityElHarness::begin(car);
+    CityElAudio::begin(AUDIO_CLICK_VOLUME);
     CityElBMS::begin();
+    CityElDemo::begin(car, false);
 
-    // Initialize Panel Front Lighting PWM & set initial state
+    // 5. Initialize Panel Front Lighting PWM & apply initial harness switch state
     CityElFrontLight::begin();
     CityElFrontLight::update(car);
 
-    // 5. Draw initial screen with 1 clean Full Refresh, then launch non-blocking Core 0 display task
+    // 6. Draw initial screen with 1 clean Full Refresh, then launch non-blocking Core 0 display task
     renderDashboard(display, car, true);
     last_full_refresh_ms = millis();
 
@@ -165,40 +182,40 @@ void setup() {
 
 void loop() {
     static bool prev_power_off = false;
+    static bool prev_demo_active = false;
+    static uint16_t partial_redraw_count = 0;
 
     checkHardwarePowerLoss(car);
 
     bool needs_redraw = false;
-    bool full_refresh = millis() - last_full_refresh_ms >= 60000UL;
+    bool full_refresh = false;
 
-    // --- 1. CLOCK & ROCKER SWITCHES (UP = Hour+, DOWN = Minute+) ---
-    // Returns true whenever a minute rolls over by itself OR rocker is flicked
-    if (CityElRTC::update(car)) {
-        needs_redraw = true;
-    }
-
-    if (full_refresh) {
-        needs_redraw = true;
-    }
-
-    // --- 2. DEMO STATE BUTTON ---
+    // --- 1. BENCH DEMO CONTROLS (Hold EXIT 1s to enter/exit) ---
     if (CityElDemo::update(car)) {
         needs_redraw = true;
     }
 
-    // Poll FarDriver One-LIN (Speed, Odometer, Gear F/N/R, Controller Fault)
-    if (CityElFarDriver::update(car)) {
+    bool demo_now = CityElDemo::isActive();
+    if (demo_now != prev_demo_active) {
+        prev_demo_active = demo_now;
         needs_redraw = true;
+        full_refresh = true;
     }
 
-    // Poll JK-BMS (Battery %, Current -200..+50A, and Battery/MOSFET Overheat)
-    if (CityElBMS::update(car)) {
-        needs_redraw = true;
-    }
-
-    // 4. TCA9555 / MCP23017 Harness Switches (Turns, Beams, Brakes, Fan, Heat)
-    if (CityElHarness::update(car)) {
-        needs_redraw = true;
+    // --- 2. LIVE VEHICLE TELEMETRY (Suspended while Bench Demo is active) ---
+    if (!demo_now) {
+        if (CityElRTC::update(car)) {
+            needs_redraw = true;
+        }
+        if (CityElFarDriver::update(car)) {
+            needs_redraw = true;
+        }
+        if (CityElBMS::update(car)) {
+            needs_redraw = true;
+        }
+        if (CityElHarness::update(car)) {
+            needs_redraw = true;
+        }
     }
 
     // --- 3. IMMEDIATE AUDIO CLICKS & FRONT LIGHTING ---
@@ -206,19 +223,32 @@ void loop() {
     CityElAudio::updateTurnSignalClicks(car);
     CityElFrontLight::update(car);
 
-    // --- 4. NON-BLOCKING E-INK REFRESH ON CORE 0 ---
+    // --- 4. SMART NON-BLOCKING E-INK REFRESH ON CORE 0 ---
     if (car.power_off != prev_power_off) {
         prev_power_off = car.power_off;
         needs_redraw = true;
         full_refresh = true;
     }
 
+    if (!car.power_off && partial_redraw_count >= EPD_PARTIALS_BEFORE_FULL) {
+        uint32_t since_full_ms = millis() - last_full_refresh_ms;
+        bool clean_while_stopped = (car.speed_kmh == 0 && since_full_ms >= EPD_FULL_REFRESH_INTERVAL_MS);
+        bool safety_cap_driving  = (since_full_ms >= EPD_MAX_DRIVING_PARTIAL_MS);
+        if (clean_while_stopped || safety_cap_driving) {
+            needs_redraw = true;
+            full_refresh = true;
+        }
+    }
+
     if (needs_redraw) {
         if (full_refresh) {
             last_full_refresh_ms = millis();
+            partial_redraw_count = 0;
+        } else {
+            partial_redraw_count++;
         }
         requestDashboardRedraw(car, full_refresh);
     }
 
-    delay(20); // Small yield for background tasks
+    delay(10); // Small yield for background tasks
 }

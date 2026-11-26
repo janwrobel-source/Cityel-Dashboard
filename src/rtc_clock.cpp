@@ -9,6 +9,7 @@
 namespace {
 
 constexpr uint32_t CLOCK_SET_TIMEOUT_MS = 30000UL;
+bool ds3231_present = false;
 
 uint8_t bcd2dec(uint8_t val) {
     return ((val >> 4) * 10) + (val & 0x0F);
@@ -16,6 +17,18 @@ uint8_t bcd2dec(uint8_t val) {
 
 uint8_t dec2bcd(uint8_t val) {
     return ((val / 10) << 4) | (val % 10);
+}
+
+bool readOsfFlag(bool &osf_set) {
+    Wire.beginTransmission(DS3231_I2C_ADDR);
+    Wire.write(0x0F);
+    if (Wire.endTransmission(false) != 0) return false;
+
+    if (Wire.requestFrom((uint8_t)DS3231_I2C_ADDR, (uint8_t)1) == 1) {
+        osf_set = (Wire.read() & 0x80) != 0;
+        return true;
+    }
+    return false;
 }
 
 }
@@ -58,7 +71,8 @@ bool setTime(uint8_t hour, uint8_t minute) {
     Wire.beginTransmission(DS3231_I2C_ADDR);
     Wire.write(0x0F);
     Wire.write(0x00);
-    return (Wire.endTransmission() == 0);
+    ds3231_present = (Wire.endTransmission() == 0);
+    return ds3231_present;
 }
 
 bool syncFromDS3231() {
@@ -76,31 +90,39 @@ bool syncFromDS3231() {
     return false;
 }
 
+void restoreClock(CityElState &car) {
+    car.clock_set_mode = ClockSetMode::NONE;
+    bool osf = false;
+    if (readOsfFlag(osf)) {
+        ds3231_present = true;
+        car.rtc_battery_low = osf;
+        if (!osf) {
+            syncFromDS3231();
+        }
+    }
+    readEsp32InternalClock(car.clock_hour, car.clock_min);
+}
+
 bool begin(CityElState &car) {
     pinMode(BTN_CONF_PIN, INPUT_PULLUP);
     pinMode(BTN_UP_PIN, INPUT_PULLUP);
     pinMode(BTN_DOWN_PIN, INPUT_PULLUP);
 
-    Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN, 100000);
-    Wire.setTimeOut(20);
-
     setEsp32InternalClock(car.clock_hour, car.clock_min, 0);
 
     Wire.beginTransmission(DS3231_I2C_ADDR);
     if (Wire.endTransmission() != 0) {
+        ds3231_present = false;
         Serial.println("[RTC] DS3231 not connected -> Running on ESP32-S3 Internal Clock!");
         return false;
     }
+    ds3231_present = true;
 
-    Wire.beginTransmission(DS3231_I2C_ADDR);
-    Wire.write(0x0F);
-    Wire.endTransmission(false);
-    if (Wire.requestFrom((uint8_t)DS3231_I2C_ADDR, (uint8_t)1) == 1) {
-        if (Wire.read() & 0x80) {
-            car.rtc_battery_low = true;
+    bool osf = false;
+    if (readOsfFlag(osf)) {
+        car.rtc_battery_low = osf;
+        if (osf) {
             Serial.println("[RTC] WARNING: DS3231 OSF set -> Clock backup battery low/missing!");
-        } else {
-            car.rtc_battery_low = false;
         }
     }
 
@@ -154,7 +176,8 @@ bool update(CityElState &car) {
         time_changed = true;
     }
 
-    if (car.clock_set_mode == ClockSetMode::NONE && !car.rtc_battery_low && (now - last_resync_ms >= 3600000UL)) {
+    if (ds3231_present && car.clock_set_mode == ClockSetMode::NONE &&
+        !car.rtc_battery_low && (now - last_resync_ms >= 3600000UL)) {
         last_resync_ms = now;
         syncFromDS3231();
     }

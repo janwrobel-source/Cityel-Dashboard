@@ -12,11 +12,40 @@ constexpr uint32_t SAMPLE_RATE = 44100;
 constexpr int DMA_FRAME_LEN = 256;
 constexpr int CLICK_SAMPLES = 1024; // 23.2 ms at 44.1 kHz (exact 4x DMA_FRAME_LEN)
 
+constexpr uint32_t NOTIFY_TICK = 1;
+constexpr uint32_t NOTIFY_TOCK = 2;
+
 i2s_chan_handle_t tx_handle = nullptr;
+TaskHandle_t audio_task_handle = nullptr;
 int16_t tick_wave[CLICK_SAMPLES * 2];
 int16_t tock_wave[CLICK_SAMPLES * 2];
 int16_t silence_buf[DMA_FRAME_LEN * 2];
 bool audio_ready = false;
+
+void writeClickToI2S(bool is_tick) {
+    if (!audio_ready || !tx_handle) return;
+    size_t bytes_written = 0;
+    const int16_t *buf = is_tick ? tick_wave : tock_wave;
+
+    // Drain the 2 stale descriptor pointers from msg_queue so the click aligns to a fresh DMA buffer
+    i2s_channel_write(tx_handle, silence_buf, sizeof(silence_buf), &bytes_written, 50);
+    i2s_channel_write(tx_handle, silence_buf, sizeof(silence_buf), &bytes_written, 50);
+
+    // Write the full click waveform into live DMA descriptors
+    i2s_channel_write(tx_handle, buf, sizeof(tick_wave), &bytes_written, 100);
+
+    // Push one trailing silence buffer so DMA finishes clocking out the click before auto_clear zeroes it
+    i2s_channel_write(tx_handle, silence_buf, sizeof(silence_buf), &bytes_written, 50);
+}
+
+void audioClickTask(void * /*param*/) {
+    uint32_t cmd = 0;
+    for (;;) {
+        if (xTaskNotifyWait(0, UINT32_MAX, &cmd, portMAX_DELAY) == pdTRUE && cmd != 0) {
+            writeClickToI2S(cmd == NOTIFY_TICK);
+        }
+    }
+}
 
 }
 
@@ -80,29 +109,23 @@ bool begin(float volume) {
     if (i2s_channel_enable(tx_handle) != ESP_OK) return false;
 
     audio_ready = true;
-    Serial.println("[AUDIO] MAX98357A I2S Relay Click Synthesizer Ready!");
+    xTaskCreate(audioClickTask, "AudioClick", 2048, nullptr, 2, &audio_task_handle);
+    Serial.println("[AUDIO] MAX98357A I2S Relay Click Synthesizer Ready (async DMA task)!");
     return true;
 }
 
 void playRelayClick(bool is_tick) {
-    if (!audio_ready || !tx_handle) return;
-    size_t bytes_written = 0;
-    const int16_t *buf = is_tick ? tick_wave : tock_wave;
-
-    // Drain the 2 stale descriptor pointers from msg_queue so the click aligns to a fresh DMA buffer
-    i2s_channel_write(tx_handle, silence_buf, sizeof(silence_buf), &bytes_written, 50);
-    i2s_channel_write(tx_handle, silence_buf, sizeof(silence_buf), &bytes_written, 50);
-
-    // Write the full click waveform into live DMA descriptors
-    i2s_channel_write(tx_handle, buf, sizeof(tick_wave), &bytes_written, 100);
-
-    // Push one trailing silence buffer so DMA finishes clocking out the click before auto_clear zeroes it
-    i2s_channel_write(tx_handle, silence_buf, sizeof(silence_buf), &bytes_written, 50);
+    if (!audio_ready) return;
+    if (audio_task_handle != nullptr) {
+        xTaskNotify(audio_task_handle, is_tick ? NOTIFY_TICK : NOTIFY_TOCK, eSetValueWithOverwrite);
+    } else {
+        writeClickToI2S(is_tick);
+    }
 }
 
 void updateTurnSignalClicks(const CityElState &car) {
     static bool prev_blinker_lit = false;
-    bool current_blinker_lit = (car.turn_left || car.turn_right || car.hazard_lights);
+    bool current_blinker_lit = !car.power_off && (car.turn_left || car.turn_right || car.hazard_lights);
 
     if (current_blinker_lit != prev_blinker_lit) {
         playRelayClick(current_blinker_lit);

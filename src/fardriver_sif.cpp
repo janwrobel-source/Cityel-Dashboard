@@ -1,22 +1,15 @@
 #include "fardriver_sif.h"
+#include "config.h"
 #include "pins.h"
 
 #include <Preferences.h>
 #include <Wire.h>
 #include <esp_rom_crc.h>
-
-#define SIF_INVERTED_BY_OPTO  true
-#define SIF_DEBUG_SERIAL      true
-#define FARD_SPEED_DIVISOR    1.0f
-
-// Default: Byte 2, Bit 6 (0x40 = Park / Charge Lock on DKD/Protocol 21).
-// Watch "[SIF] Raw:" in Serial Monitor when triggering the FarDriver Charger pin to verify!
-#define FARD_CHARGER_BYTE     2
-#define FARD_CHARGER_MASK     0x40
+#include <soc/gpio_struct.h>
 
 namespace {
 
-static bool fram_online = false;
+bool fram_online = false;
 
 struct OdoRecord {
     uint32_t total_tenths_km;
@@ -28,14 +21,25 @@ uint32_t current_tenths = 0;
 uint32_t last_saved_tenths = 0;
 uint32_t sub_tenth_mm = 0;
 uint64_t last_pkt_us = 0;
+uint32_t last_handled_seq = 0;
 uint32_t zero_speed_since_ms = 0;
 
-volatile uint8_t sif_rx_buf[12];
-volatile bool sif_new_pkt = false;
+portMUX_TYPE sif_mux = portMUX_INITIALIZER_UNLOCKED;
+uint8_t sif_rx_buf[12];
+uint64_t sif_pkt_us = 0;
+uint32_t sif_pkt_seq = 0;
 
 uint32_t calcCrc(uint32_t val) {
     uint32_t crc = esp_rom_crc32_le(0xA5A55A5AUL, reinterpret_cast<const uint8_t*>(&val), sizeof(val));
     return (crc == 0) ? 1UL : crc;
+}
+
+inline bool IRAM_ATTR readSifPinFast() {
+    if constexpr (FARD_SIF_PIN < 32) {
+        return ((GPIO.in >> FARD_SIF_PIN) & 0x1U) != 0;
+    } else {
+        return ((GPIO.in1.val >> (FARD_SIF_PIN - 32)) & 0x1U) != 0;
+    }
 }
 
 void IRAM_ATTR onEdgeISR() {
@@ -48,7 +52,7 @@ void IRAM_ATTR onEdgeISR() {
     uint32_t dur = (uint32_t)(now - last_edge_us);
     last_edge_us = now;
 
-    bool wire_high = digitalRead(FARD_SIF_PIN);
+    bool wire_high = readSifPinFast();
     if (SIF_INVERTED_BY_OPTO) wire_high = !wire_high;
 
     if (wire_high) {
@@ -76,9 +80,12 @@ void IRAM_ATTR onEdgeISR() {
             if (++bit_index == 96) {
                 uint8_t xor_sum = 0;
                 for (int i = 0; i < 11; i++) xor_sum ^= rx_work[i];
-                if (xor_sum == rx_work[11] && !sif_new_pkt) {
+                if (xor_sum == rx_work[11]) {
+                    portENTER_CRITICAL_ISR(&sif_mux);
                     for (int i = 0; i < 12; i++) sif_rx_buf[i] = rx_work[i];
-                    sif_new_pkt = true;
+                    sif_pkt_us = now;
+                    sif_pkt_seq++;
+                    portEXIT_CRITICAL_ISR(&sif_mux);
                 }
                 bit_index = -1;
             }
@@ -86,31 +93,53 @@ void IRAM_ATTR onEdgeISR() {
     }
 }
 
+bool writeFramSlot(uint8_t slot, const OdoRecord &rec) {
+    uint16_t addr = slot * sizeof(OdoRecord);
+    for (uint8_t attempt = 0; attempt < 2; attempt++) {
+        Wire.beginTransmission(ODO_FRAM_I2C_ADDR);
+        Wire.write((uint8_t)(addr >> 8));
+        Wire.write((uint8_t)(addr & 0xFF));
+        Wire.write(reinterpret_cast<const uint8_t*>(&rec), sizeof(OdoRecord));
+        if (Wire.endTransmission() == 0) return true;
+    }
+    return false;
+}
+
 void saveOdometer(uint32_t tenths_val) {
     OdoRecord rec = { tenths_val, calcCrc(tenths_val) };
+    bool saved_ok = false;
+
     if (fram_online) {
-        for (uint8_t slot = 0; slot < 2; slot++) {
-            uint16_t addr = slot * sizeof(OdoRecord);
-            Wire.beginTransmission(ODO_FRAM_I2C_ADDR);
-            Wire.write((uint8_t)(addr >> 8));
-            Wire.write((uint8_t)(addr & 0xFF));
-            Wire.write((const uint8_t*)&rec, sizeof(OdoRecord));
-            Wire.endTransmission();
+        bool okA = writeFramSlot(0, rec);
+        bool okB = writeFramSlot(1, rec);
+        saved_ok = okA || okB;
+        if (!saved_ok) {
+            Serial.println("[ODO] WARNING: FRAM write failed on both slots!");
         }
     } else {
-        odo_prefs.putBytes("slotA", &rec, sizeof(OdoRecord));
-        odo_prefs.putBytes("slotB", &rec, sizeof(OdoRecord));
+        size_t wA = odo_prefs.putBytes("slotA", &rec, sizeof(OdoRecord));
+        size_t wB = odo_prefs.putBytes("slotB", &rec, sizeof(OdoRecord));
+        saved_ok = (wA == sizeof(OdoRecord)) || (wB == sizeof(OdoRecord));
     }
-    last_saved_tenths = tenths_val;
-    Serial.printf("[ODO] Saved to NVM: %lu.%lu km\n", tenths_val / 10UL, tenths_val % 10UL);
+
+    if (saved_ok) {
+        last_saved_tenths = tenths_val;
+        Serial.printf("[ODO] Saved to NVM: %lu.%lu km\n",
+                      (unsigned long)(tenths_val / 10UL), (unsigned long)(tenths_val % 10UL));
+    }
 }
 
 }
 
 namespace CityElFarDriver {
 
+void syncToState(CityElState &car) {
+    car.odometer_km = current_tenths / 10UL;
+    car.odo_tenths  = current_tenths % 10UL;
+}
+
 void begin(CityElState &car) {
-    // 1. Auto-detect I2C FRAM (Wire.begin was already called by CityElRTC::begin)
+    // 1. Auto-detect I2C FRAM (Wire.begin was already called in setup())
     Wire.beginTransmission(ODO_FRAM_I2C_ADDR);
     fram_online = (Wire.endTransmission() == 0);
 
@@ -125,7 +154,7 @@ void begin(CityElState &car) {
             Wire.write((uint8_t)(addr & 0xFF));
             if (Wire.endTransmission(false) == 0 &&
                 Wire.requestFrom((uint8_t)ODO_FRAM_I2C_ADDR, (uint8_t)sizeof(OdoRecord)) == sizeof(OdoRecord)) {
-                uint8_t *dst = (uint8_t*)(slot == 0 ? &slotA : &slotB);
+                uint8_t *dst = reinterpret_cast<uint8_t*>(slot == 0 ? &slotA : &slotB);
                 for (size_t i = 0; i < sizeof(OdoRecord); i++) dst[i] = Wire.read();
             }
         }
@@ -136,46 +165,65 @@ void begin(CityElState &car) {
         odo_prefs.getBytes("slotB", &slotB, sizeof(OdoRecord));
     }
 
-    // Validate Slot A, fall back to Slot B, or seed initial mileage on very first boot
-    if (slotA.crc != 0 && slotA.crc == calcCrc(slotA.total_tenths_km)) {
+    // Validate both slots and choose the highest valid mileage to prevent rollback
+    bool validA = (slotA.crc != 0 && slotA.crc == calcCrc(slotA.total_tenths_km));
+    bool validB = (slotB.crc != 0 && slotB.crc == calcCrc(slotB.total_tenths_km));
+
+    if (validA && validB) {
+        current_tenths = max(slotA.total_tenths_km, slotB.total_tenths_km);
+        if (slotA.total_tenths_km != slotB.total_tenths_km) {
+            saveOdometer(current_tenths); // Repair stale slot
+        }
+    } else if (validA) {
         current_tenths = slotA.total_tenths_km;
-    } else if (slotB.crc != 0 && slotB.crc == calcCrc(slotB.total_tenths_km)) {
+        saveOdometer(current_tenths); // Repair corrupted slot B
+    } else if (validB) {
         current_tenths = slotB.total_tenths_km;
+        saveOdometer(current_tenths); // Repair corrupted slot A
     } else {
         current_tenths = (car.odometer_km * 10UL) + (car.odo_tenths % 10);
         saveOdometer(current_tenths);
     }
 
     last_saved_tenths = current_tenths;
-    car.odometer_km = current_tenths / 10UL;
-    car.odo_tenths  = current_tenths % 10UL;
+    syncToState(car);
 
-    // 2. Attach FarDriver One-LIN Interrupt on GPIO 15
+    // 2. Attach FarDriver One-LIN Interrupt on FARD_SIF_PIN
     pinMode(FARD_SIF_PIN, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(FARD_SIF_PIN), onEdgeISR, CHANGE);
-    Serial.printf("[SIF] FarDriver One-LIN ready on GPIO %d | Odo: %lu.%u km\n",
-                  FARD_SIF_PIN, car.odometer_km, car.odo_tenths);
+    Serial.printf("[SIF] FarDriver One-LIN ready on GPIO %u | Odo: %lu.%u km\n",
+                  FARD_SIF_PIN, (unsigned long)car.odometer_km, car.odo_tenths);
 }
 
 bool update(CityElState &car) {
     bool changed = false;
     uint64_t now_us = esp_timer_get_time();
 
-    if (sif_new_pkt) {
-        uint8_t pkt[12];
-        noInterrupts();
+    uint8_t pkt[12];
+    uint64_t pkt_us = 0;
+    uint32_t seq = 0;
+    bool has_new_pkt = false;
+
+    portENTER_CRITICAL(&sif_mux);
+    if (sif_pkt_seq != last_handled_seq) {
         for (int i = 0; i < 12; i++) pkt[i] = sif_rx_buf[i];
-        sif_new_pkt = false;
-        interrupts();
+        pkt_us = sif_pkt_us;
+        seq = sif_pkt_seq;
+        has_new_pkt = true;
+    }
+    portEXIT_CRITICAL(&sif_mux);
+
+    if (has_new_pkt) {
+        last_handled_seq = seq;
 
         // 1. Decode Speed (Bytes 7 & 8 Big-Endian)
-        uint16_t raw_spd = (pkt[7] << 8) | pkt[8];
+        uint16_t raw_spd = ((uint16_t)pkt[7] << 8) | pkt[8];
         float speed_f    = (float)raw_spd / FARD_SPEED_DIVISOR;
         uint8_t new_spd  = (uint8_t)constrain(roundf(speed_f), 0, 99);
 
-        // 2. Trapezoidal Odometer Integration (mm = avg_kmh * dt_us / 3600)
-        if (last_pkt_us > 0) {
-            uint64_t dt_us = now_us - last_pkt_us;
+        // 2. Trapezoidal Odometer Integration using exact ISR packet timestamps
+        if (last_pkt_us > 0 && pkt_us > last_pkt_us) {
+            uint64_t dt_us = pkt_us - last_pkt_us;
             if (dt_us < 500000ULL) {
                 float avg_kmh = 0.5f * ((float)car.speed_kmh + speed_f);
                 sub_tenth_mm += (uint32_t)((avg_kmh * (float)dt_us) / 3600.0f);
@@ -183,14 +231,13 @@ bool update(CityElState &car) {
                 while (sub_tenth_mm >= 100000UL) { // 100,000 mm = 0.1 km
                     sub_tenth_mm -= 100000UL;
                     current_tenths++;
-                    car.odometer_km = current_tenths / 10UL;
-                    car.odo_tenths  = current_tenths % 10UL;
-                    changed         = true;
+                    syncToState(car);
+                    changed = true;
                     if (fram_online) saveOdometer(current_tenths);
                 }
             }
         }
-        last_pkt_us = now_us;
+        last_pkt_us = pkt_us;
 
         if (new_spd != car.speed_kmh) {
             car.speed_kmh = new_spd;
@@ -210,7 +257,7 @@ bool update(CityElState &car) {
             changed          = true;
         }
 
-        // 4. Decode Gear from Byte 2 (Force 'N' if Charger Immobilizer / Park is active!)
+        // 4. Decode Gear from Byte 2 (Force 'N' if Charger Immobilizer / Park is active)
         char new_gear = 'N';
         if (!car.charger_conn) {
             if (pkt[2] & 0x04)      new_gear = 'R';
@@ -228,7 +275,7 @@ bool update(CityElState &car) {
             changed                 = true;
         }
 
-        // 6. Serial Debug Print (shows Byte 2 & Byte 3 in binary/hex to spot the Charger bit!)
+        // 6. Serial Debug Print
         if (SIF_DEBUG_SERIAL) {
             static uint32_t last_dbg_ms = 0;
             if (millis() - last_dbg_ms > 1000) {
@@ -248,8 +295,8 @@ bool update(CityElState &car) {
         saveOdometer(current_tenths);
     }
 
-    // 8. Stale Signal Watchdog: drop speed to 0 km/h if no packet for > 1.2s
-    if (last_pkt_us > 0 && (now_us - last_pkt_us > 1200000ULL)) {
+    // 8. Stale Signal Watchdog: drop speed to 0 km/h if no packet for > SIF_STALE_TIMEOUT_US
+    if (last_pkt_us > 0 && now_us > last_pkt_us && (now_us - last_pkt_us > SIF_STALE_TIMEOUT_US)) {
         if (car.speed_kmh != 0) {
             car.speed_kmh = 0;
             changed       = true;

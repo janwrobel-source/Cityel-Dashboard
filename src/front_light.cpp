@@ -1,14 +1,10 @@
 #include "front_light.h"
+#include "config.h"
 #include "pins.h"
 
 #include <Arduino.h>
 
 namespace {
-
-constexpr uint32_t PWM_FREQ_HZ = 5000;
-constexpr uint8_t PWM_RESOLUTION_BITS = 8;
-constexpr uint8_t FRONT_LIGHT_DUTY_ON = 160; // Constant PWM duty (0-255) when car lights are on
-constexpr uint8_t FRONT_LIGHT_DUTY_OFF = 0;
 
 bool pwm_ready = false;
 bool last_lights_on = false;
@@ -19,7 +15,7 @@ bool state_initialized = false;
 namespace CityElFrontLight {
 
 bool begin() {
-    pwm_ready = ledcAttach(FRONT_LIGHT_PIN, PWM_FREQ_HZ, PWM_RESOLUTION_BITS);
+    pwm_ready = ledcAttach(FRONT_LIGHT_PIN, FRONT_LIGHT_PWM_HZ, FRONT_LIGHT_PWM_BITS);
     if (!pwm_ready) {
         Serial.println("[LIGHT] ERROR: Failed to attach PWM on FRONT_LIGHT_PIN!");
         return false;
@@ -44,4 +40,3 @@ void update(const CityElState &car) {
 }
 
 }
-

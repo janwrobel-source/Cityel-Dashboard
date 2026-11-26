@@ -25,8 +25,10 @@ constexpr uint8_t EXPANDER_I2C_ADDR = 0x20; // PCF8575 / TCA9555 / MCP23017 Harn
 constexpr uint8_t ODO_FRAM_I2C_ADDR = 0x51; // I2C FRAM (Odometer storage)
 constexpr uint8_t DS3231_I2C_ADDR   = 0x68; // DS3231 Real-Time Clock
 
-// --- 4. FarDriver Controller One-LIN / SIF Input ---
-constexpr uint8_t FARD_SIF_PIN = 15;
+// --- 4. FarDriver Controller (One-LIN / SIF Input + Isolated UART2) ---
+constexpr uint8_t FARD_SIF_PIN     = 15;
+constexpr uint8_t FARD_UART_TX_PIN = 3;   // Isolated UART2 TX -> FarDriver RX (ADuM1201)
+constexpr uint8_t FARD_UART_RX_PIN = 21;  // Isolated UART2 RX <- FarDriver TX (ADuM1201)
 
 // --- 5. JK-BMS (RS485 UART1 / CAN TWAI) ---
 constexpr uint8_t JKBMS_TX_PIN = 17;
