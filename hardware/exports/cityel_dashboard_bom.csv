@@ -74,6 +74,7 @@
 "R31","100R","Resistor_SMD:R_0603_1608Metric","1",""
 "R32","10k","Resistor_SMD:R_0603_1608Metric","1",""
 "R33","10k","Resistor_SMD:R_0603_1608Metric","1",""
+"R34","100k","Resistor_SMD:R_0603_1608Metric","1",""
 "U1","TPS54302","Package_TO_SOT_SMD:SOT-23-6","1",""
 "U2","PCF8575DBR","Package_SO:SSOP-24_5.3x8.2mm_P0.65mm","1",""
 "U3","DS3231MZ","Package_SO:SOIC-8_3.9x4.9mm_P1.27mm","1",""

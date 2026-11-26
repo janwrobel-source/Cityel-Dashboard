@@ -21165,6 +21165,115 @@
 		)
 		(uuid "6a67059d-81a0-40f4-b3b7-cc4316153720")
 	)
+	(symbol
+		(lib_id "Device:R")
+		(at 234.95 237.49 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "75c6af75-e928-4468-a747-0a9f5d8e3d2c")
+		(property "Reference" "R34"
+			(at 236.982 237.49 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100k"
+			(at 234.95 237.49 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
+			(at 233.172 237.49 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 234.95 237.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 234.95 237.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b39c7512-40a2-4275-9341-a0fb705aa9ff")
+		)
+		(pin "2"
+			(uuid "2eb03ee0-0c7f-4a80-9905-e8db015a82da")
+		)
+		(instances
+			(project "cityel_dashboard"
+				(path "/9f333943-5579-4f33-814b-51c728f27e8a"
+					(reference "R34")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(label "AMP_GAIN"
+		(at 234.95 233.68 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "aad48bc0-b39a-44be-8d2d-ff168fd1c9e0")
+	)
+	(label "GND"
+		(at 234.95 241.3 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "209dbae0-22f2-487e-b65a-71867cff6911")
+	)
+	(label "AMP_GAIN"
+		(at 252.73000000000002 229.87 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "562f4675-38bd-43d7-bab6-b303b8c5e492")
+	)
 	(sheet_instances
 		(path "/"
 			(page "1")
