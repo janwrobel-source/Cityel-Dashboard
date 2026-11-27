@@ -1,12 +1,12 @@
 %TF.GenerationSoftware,KiCad,Pcbnew,10.0.8*%
-%TF.CreationDate,2026-11-26T22:27:43+01:00*%
+%TF.CreationDate,2026-11-26T22:58:41+01:00*%
 %TF.ProjectId,cityel_dashboard,63697479-656c-45f6-9461-7368626f6172,rev?*%
 %TF.SameCoordinates,Original*%
 %TF.FileFunction,Copper,L2,Bot*%
 %TF.FilePolarity,Positive*%
 %FSLAX46Y46*%
 G04 Gerber Fmt 4.6, Leading zero omitted, Abs format (unit mm)*
-G04 Created by KiCad (PCBNEW 10.0.8) date 2026-11-26 22:27:43*
+G04 Created by KiCad (PCBNEW 10.0.8) date 2026-11-26 22:58:41*
 %MOMM*%
 %LPD*%
 G01*
@@ -268,6 +268,7 @@ X142374300Y-78711900D03*
 X148264700Y-66303000D03*
 X151130300Y-60606200D03*
 X211126100Y-91803800D03*
+X140890000Y-80235000D03*
 X149125200Y-62550500D03*
 X208132700Y-95678600D03*
 X148264700Y-63390700D03*
