@@ -12867,6 +12867,131 @@
 		(at 330.2 52.07)
 		(uuid "91d465ec-c1f2-4ad2-aea5-33f5b6a415c6")
 	)
+	(symbol
+		(lib_id "Connector_Generic:Conn_01x04")
+		(at 275.59 58.42 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "ef616c15-f44c-4b2b-96cd-e3b258e05858")
+		(property "Reference" "M8"
+			(at 275.59 63.5 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "FRAM_I2C_MOD"
+			(at 275.59 50.8 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Connector_PinSocket_2.54mm:PinSocket_1x04_P2.54mm_Vertical"
+			(at 275.59 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 275.59 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x04, script generated (kicad-library-utils/schlib/autogen/connector/)"
+			(at 275.59 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "1add22c0-733f-4edf-8023-8b71c36bbfba")
+		)
+		(pin "2"
+			(uuid "13669cfd-3299-4288-b9f5-1f452e2c9fae")
+		)
+		(pin "3"
+			(uuid "6e436fc7-e87b-468f-8473-b9e24fad6222")
+		)
+		(pin "4"
+			(uuid "bb453ba6-9761-401b-8dfe-2be2378ef2e0")
+		)
+		(instances
+			(project "cityel_dashboard_modules"
+				(path "/8d6b6911-dee3-4664-968d-c798e363292a"
+					(reference "M8")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(label "+3V3"
+		(at 270.51 55.88 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "f613b2e4-6e96-410e-8a00-ea7727641392")
+	)
+	(label "GND"
+		(at 270.51 58.42 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "a0de01e1-4d26-4ae0-b3a5-b86bef72d6a0")
+	)
+	(label "I2C_SCL"
+		(at 270.51 60.96 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "195f5692-eb9c-4aea-9ee9-033eac79ac13")
+	)
+	(label "I2C_SDA"
+		(at 270.51 63.5 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "9134e6c5-63ff-4143-9b3a-5ea0836c4d48")
+	)
 	(sheet_instances
 		(path "/"
 			(page "1")

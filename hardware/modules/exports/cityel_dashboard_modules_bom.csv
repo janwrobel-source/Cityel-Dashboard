@@ -23,6 +23,7 @@
 "M5","MAX98357A_MOD","Connector_PinSocket_2.54mm:PinSocket_1x07_P2.54mm_Vertical","1",""
 "M6","ISO_RS485_MOD","Connector_PinSocket_2.54mm:PinSocket_1x04_P2.54mm_Vertical","1",""
 "M7","ISO_UART2_MOD","Connector_PinSocket_2.54mm:PinSocket_1x04_P2.54mm_Vertical","1",""
+"M8","FRAM_I2C_MOD","Connector_PinSocket_2.54mm:PinSocket_1x04_P2.54mm_Vertical","1",""
 "Q1","IRLZ44N","Package_TO_SOT_THT:TO-220-3_Vertical","1",""
 "R4","10R_1W","Resistor_THT:R_Axial_DIN0411_L9.9mm_D3.6mm_P12.70mm_Horizontal","1",""
 "R5","10k","Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal","1",""

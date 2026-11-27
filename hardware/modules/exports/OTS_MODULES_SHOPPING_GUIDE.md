@@ -6,7 +6,7 @@ This guide accompanies [`cityel_dashboard_modules_bom.csv`](./cityel_dashboard_m
 
 ---
 
-## 1. Off-the-Shelf Breakout Modules (`M1` – `M7`)
+## 1. Off-the-Shelf Breakout Modules (`M1` – `M8`)
 
 | Ref | Module | Qty | PCB Socket Pinout | Est. Price | Where to Buy |
 | :--- | :--- | :---: | :--- | :---: | :--- |
@@ -16,8 +16,9 @@ This guide accompanies [`cityel_dashboard_modules_bom.csv`](./cityel_dashboard_m
 | **`M5`** | **MAX98357A I2S 3W Class-D Audio Amplifier** | 1 | `1x07` (2.54 mm):<br>`1=LRC`, `2=BCLK`, `3=DIN`, `4=GAIN` (`R34=100k` to GND), `5=SD` (NC), `6=GND`, `7=+5V` | \$2–6 | • [AliExpress: MAX98357A I2S amp](https://www.aliexpress.com/w/wholesale-MAX98357A-I2S-module.html)<br>• [Amazon: MAX98357A breakout](https://www.amazon.com/s?k=MAX98357A+I2S+amplifier+breakout)<br>• [Adafruit MAX98357A Breakout (original)](https://www.adafruit.com/product/3006) |
 | **`M6`** | **Isolated TTL-to-RS485 Module** (3.3V/5V, **auto-direction**, built-in isolated DC-DC) | 1 | `1x04` (2.54 mm):<br>`1=+3V3`, `2=GND`, `3=JKBMS_TX`, `4=JKBMS_RX`<br>*(Connect JK-BMS `A/B/GND` to the module's own isolated screw terminal)* | \$4–8 | • [Waveshare TTL to RS485 (C) — Isolated Mini](https://www.waveshare.com/ttl-to-rs485-c.htm)<br>• [AliExpress: Isolated TTL RS485 auto-direction](https://www.aliexpress.com/w/wholesale-isolated-TTL-to-RS485-module-auto.html)<br>• [Amazon: Waveshare TTL to RS485 C](https://www.amazon.com/s?k=Waveshare+TTL+to+RS485+C) |
 | **`M7`** | **ADuM1201 Dual-Channel Digital Isolator** (`CJMCU-1201`, isolated UART2 for FarDriver) | 1 | `1x04` (2.54 mm):<br>`1=+3V3`, `2=GND`, `3=FARD_UART_TX`, `4=FARD_UART_RX`<br>*(Connect FarDriver TX/RX/5V/GND to the isolated side of the module)* | \$2–4 | • [AliExpress: ADuM1201 CJMCU-1201 module](https://www.aliexpress.com/w/wholesale-ADuM1201-CJMCU-1201-module.html)<br>• [Amazon: ADuM1201 isolator module](https://www.amazon.com/s?k=ADuM1201+digital+isolator+module) |
+| **`M8`** | **I2C FRAM Breakout (`MB85RC256V` 32 KB or `FM24C64B` 8 KB)** (zero-wear odometer storage, `0x50`) | 1 | `1x04` (2.54 mm):<br>`1=+3V3`, `2=GND`, `3=I2C_SCL`, `4=I2C_SDA` | \$2–5 | • [AliExpress: MB85RC256V I2C FRAM module](https://www.aliexpress.com/w/wholesale-MB85RC256V-I2C-FRAM-module.html)<br>• [Amazon: MB85RC256V FRAM breakout](https://www.amazon.com/s?k=MB85RC256V+I2C+FRAM+breakout)<br>• [Adafruit I2C Non-Volatile FRAM 32KB (MB85RC256V)](https://www.adafruit.com/product/1895) |
 
-> **Total for all 6 breakout modules:** ~**\$13 – \$26** (AliExpress) or ~**\$25 – \$45** (Amazon / Adafruit / Waveshare).
+> **Total for all 7 breakout modules:** ~**\$15 – \$31** (AliExpress) or ~**\$30 – \$55** (Amazon / Adafruit / Waveshare).
 
 ---
 
@@ -41,6 +42,9 @@ This guide accompanies [`cityel_dashboard_modules_bom.csv`](./cityel_dashboard_m
 6. **`M7` (ADuM1201 — FarDriver UART2):**
    - **Optional** if you only use the 1-wire SIF / stock Hall speedometer on `J5`.
    - Because `ADuM1201` has no built-in DC-DC converter, the FarDriver side (`VDD2`, `GND2`) must be powered from the FarDriver's own 5V/3.3V programming/Bluetooth port supply.
+7. **`M8` (I2C FRAM — `MB85RC256V` / `FM24C64B`):**
+   - Leave `A0`/`A1`/`A2` and `WP` unconnected (internally pulled down on standard breakouts) so the I2C address is **`0x50`** (matches `ODO_FRAM_I2C_ADDR` in `src/pins.h`).
+   - Standard 4-pin AliExpress `MB85RC256V` boards match `M8` directly (`1=+3V3, 2=GND, 3=SCL, 4=SDA`); if using the 5-pin Adafruit board (`VCC, GND, WP, SCL, SDA`), leave `WP` floating or bridge with 4 short jumpers.
 
 ---
 
@@ -61,4 +65,4 @@ All remaining parts in [`cityel_dashboard_modules_bom.csv`](./cityel_dashboard_m
 | **1W Resistors (`R4`, `R29`, `R30`)** | 3 | `10 Ω 1W` axial metal-film/metal-oxide | [AliExpress: 10 ohm 1W resistor](https://www.aliexpress.com/w/wholesale-10-ohm-1W-resistor.html) |
 | **1/4W Resistors & `100 nF` Cap** | 20 | `100R` (1), `2.2k` (11), `3.3k` (1), `4.7k` (1), `10k` (5), `100k` (1) + 1× `100 nF` ceramic disc | Standard 1/4W resistor assortment kit |
 | **5.08 mm Screw Terminals (`J1, J3, J4, J5, J8`)** | 5 | `5.08 mm` pitch PCB screw terminals: 2× 2-pin, 1× 4-pin, 1× 5-pin, 1× 8-pin (or interlockable 2/3-pin blocks) | [AliExpress: 5.08mm screw terminal block](https://www.aliexpress.com/w/wholesale-5.08mm-PCB-screw-terminal-block.html) |
-| **2.54 mm Female Pin Headers (`M1`–`M7`, `J2`)** | Assorted | `1×40` breakaway female strips (cut to 4× 4-pin, 1× 7-pin, 2× 12-pin) + `2×10` (20-pin) header & ribbon/Dupont cable to CrowPanel | [AliExpress: 2.54mm female pin header](https://www.aliexpress.com/w/wholesale-2.54mm-female-pin-header-strip.html) · [2×10 IDC cable](https://www.aliexpress.com/w/wholesale-2x10-20-pin-2.54mm-ribbon-cable.html) |
+| **2.54 mm Female Pin Headers (`M1`–`M8`, `J2`)** | Assorted | `1×40` breakaway female strips (cut to 5× 4-pin, 1× 7-pin, 2× 12-pin) + `2×10` (20-pin) header & ribbon/Dupont cable to CrowPanel | [AliExpress: 2.54mm female pin header](https://www.aliexpress.com/w/wholesale-2.54mm-female-pin-header-strip.html) · [2×10 IDC cable](https://www.aliexpress.com/w/wholesale-2x10-20-pin-2.54mm-ribbon-cable.html) |
