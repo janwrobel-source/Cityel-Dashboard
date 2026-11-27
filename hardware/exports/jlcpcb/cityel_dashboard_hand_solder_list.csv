@@ -1,0 +1,16 @@
+Comment,Designator,Footprint,Notes
+10R 1W,"R4,R29,R30",R_2512_6332Metric,Large 2512 SMD - easy hand solder
+10k 1206,"R21,R22",R_1206_3216Metric,Large 1206 SMD - easy hand solder
+2A PTC Fuse,F1,Fuse_1812_4532Metric,Large 1812 SMD - easy hand solder
+SMBJ15A TVS,D1,D_SMB,Large SMB diode - easy hand solder
+10uH 4A Inductor,L1,L_Bourns_SRR1260,Large 12mm inductor - easy hand solder
+DS3231MZ,U3,SOIC-8_3.9x4.9mm_P1.27mm,SOIC-8 (easy hand solder)
+FM24C64B,U4,SOIC-8_3.9x4.9mm_P1.27mm,Optional (firmware falls back to ESP32 NVS)
+LTV-847S,"U5,U6,U7",SMDIP-16_W9.53mm,Large 2.54mm pitch SMDIP-16 - easy hand solder
+PC817 SMD,U8,SMDIP-4_W9.53mm,Large 2.54mm pitch SMDIP-4 - easy hand solder
+ADM2587E or CA-IS3092W,U9,SOIC-20W_7.5x12.8mm_P1.27mm,Large SOIC-20W (CA-IS3092W ~$2.50 vs ADM2587E ~$12)
+ADuM1201AR or CA-IS3721LS,U11,SOIC-8_3.9x4.9mm_P1.27mm,SOIC-8 (CA-IS3721LS ~$0.60 vs ADuM1201 ~$5)
+CR1220 Holder,BT1,BatteryHolder_Keystone_3000_1x12mm,Large SMD holder - easy hand solder
+5F 2.7V Supercap,"C8,C9",CP_Radial_D10.0mm_P5.00mm,THT radial supercapacitors
+Screw Terminals,"J1,J3,J4,J5,J6,J7,J8,J9",MKDS-1.5 5.08mm,THT 5.08mm screw terminals (2p/3p/4p/5p/8p)
+2x10 Pin Socket,J2,PinSocket_2x10_P2.54mm_Vertical,THT 2x10 2.54mm header for CrowPanel cable
